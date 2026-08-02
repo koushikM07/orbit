@@ -1,0 +1,38 @@
+.hero {
+    min-height: 80vh;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    text-align: center;
+
+    padding: 40px;
+
+    background: linear-gradient(180deg,#0f172a,#111827);
+}
+
+.hero h1{
+    font-size:72px;
+    margin-bottom:20px;
+    color:white;
+}
+
+.hero p{
+    max-width:700px;
+
+    font-size:22px;
+
+    color:#cbd5e1;
+
+    line-height:1.7;
+
+    margin-bottom:40px;
+}
+
+.hero-buttons{
+    display:flex;
+
+    gap:20px;
+}

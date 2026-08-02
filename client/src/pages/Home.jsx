@@ -1,33 +1,44 @@
-import { useState } from 'react'
-import { Link } from "react-router-dom";
+import Navbar from "../components/Navbar";
+import Hero from "../components/Hero";
+import TopicCard from "../components/TopicCard";
 import "../App.css";
 
-function App() {
+function Home() {
   return (
-    <div className="container">
-      <h1>🌍 Orbit</h1>
+    <>
+      <Navbar />
 
-      <p>Share your thoughts with the world.</p>
+      <Hero />
 
-      <Link to="/login">
-  <button>Login</button>
-</Link>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mt-16">
 
-<Link to="/register">
-  <button>Register</button>
-</Link>
-      <hr />
+  <TopicCard
+    icon="🎬"
+    title="Movies"
+    description="Reviews, ratings and discussions"
+  />
 
-      <h2>Latest Discussions</h2>
+  <TopicCard
+    icon="💻"
+    title="Technology"
+    description="AI, Gadgets and Programming"
+  />
 
-     <div className="topics">
-  <div className="topic-card">🎬 Movies</div>
-  <div className="topic-card">💻 Technology</div>
-  <div className="topic-card">✈️ Travel</div>
-  <div className="topic-card">🍕 Food</div>
+  <TopicCard
+    icon="✈️"
+    title="Travel"
+    description="Places, stories and adventures"
+  />
+
+  <TopicCard
+    icon="🍕"
+    title="Food"
+    description="Restaurants and recipes"
+  />
+
 </div>
-    </div>
+    </>
   );
 }
 
-export default App;
+export default Home;
