@@ -5,10 +5,13 @@ function Navbar() {
   return (
     <nav className="flex justify-between items-center px-10 py-5 bg-slate-950 text-white border-b border-slate-800">
 
-      <div className="flex items-center gap-2">
-        <Globe className="text-orange-500" size={30} />
-        <h1 className="text-2xl font-bold">ORBIT</h1>
-      </div>
+      <Link
+  to="/"
+  className="flex items-center gap-2 hover:scale-105 transition-transform duration-300"
+>
+  <Globe className="text-orange-500" size={30} />
+  <h1 className="text-2xl font-bold tracking-wide">ORBIT</h1>
+</Link>
 
       <div className="flex items-center gap-8">
 
@@ -29,7 +32,7 @@ function Navbar() {
             Register
           </div>
         </Link>
-
+    
       </div>
     </nav>
   );
