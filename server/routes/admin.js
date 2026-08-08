@@ -1,9 +1,13 @@
 const express = require("express");
 const db = require("../database/database");
 
+const authMiddleware = require("../middleware/authMiddleware");
+const adminMiddleware = require("../middleware/adminMiddleware");
+
 const router = express.Router();
 
-
+router.use(authMiddleware);
+router.use(adminMiddleware);
 // ==========================================
 // ADMIN STATS
 // ==========================================
@@ -104,7 +108,6 @@ router.delete("/users/:id", (req, res) => {
 
     try {
 
-        // Get user first
         const user = db.prepare(`
             SELECT id, name, email, role
             FROM users
@@ -120,7 +123,7 @@ router.delete("/users/:id", (req, res) => {
 
         }
 
-        // NEVER delete an ADMIN through this endpoint
+        // Never delete an admin
         if (user.role === "ADMIN") {
 
             return res.status(403).json({
@@ -130,19 +133,19 @@ router.delete("/users/:id", (req, res) => {
 
         }
 
-        // Delete comments written by the user
+        // Delete user's comments
         db.prepare(`
             DELETE FROM comments
             WHERE user_id = ?
         `).run(id);
 
-        // Delete discussions created by the user
+        // Delete user's discussions
         db.prepare(`
             DELETE FROM discussions
             WHERE user_id = ?
         `).run(id);
 
-        // Finally delete user
+        // Delete user
         const result = db.prepare(`
             DELETE FROM users
             WHERE id = ?

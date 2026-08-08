@@ -19,7 +19,32 @@ function Admin() {
 
 
   // ==========================================
-  // LOAD ADMIN DATA
+  // GET JWT
+  // ==========================================
+
+  const getToken = () => {
+    return localStorage.getItem("orbitToken");
+  };
+
+
+  // ==========================================
+  // AUTH HEADERS
+  // ==========================================
+
+  const getAuthHeaders = () => {
+
+    const token = getToken();
+
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+
+  };
+
+
+  // ==========================================
+  // LOAD ADMIN
   // ==========================================
 
   useEffect(() => {
@@ -27,12 +52,28 @@ function Admin() {
     const storedUser =
       localStorage.getItem("orbitUser");
 
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    if (!storedUser) {
+      return;
     }
 
-    fetchStats();
-    fetchUsers();
+    try {
+
+      const adminUser =
+        JSON.parse(storedUser);
+
+      setUser(adminUser);
+
+      fetchStats();
+      fetchUsers();
+
+    } catch (error) {
+
+      console.error(
+        "Invalid stored user:",
+        error
+      );
+
+    }
 
   }, []);
 
@@ -46,10 +87,24 @@ function Admin() {
     try {
 
       const response = await fetch(
-        "http://localhost:5000/api/admin/stats"
+        "http://localhost:5000/api/admin/stats",
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.message ||
+          "Failed to load statistics."
+        );
+
+      }
 
       if (data.success) {
         setStats(data.stats);
@@ -58,7 +113,7 @@ function Admin() {
     } catch (error) {
 
       console.error(
-        "Failed to load stats:",
+        "Stats error:",
         error
       );
 
@@ -80,10 +135,24 @@ function Admin() {
     try {
 
       const response = await fetch(
-        "http://localhost:5000/api/admin/users"
+        "http://localhost:5000/api/admin/users",
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.message ||
+          "Failed to load users."
+        );
+
+      }
 
       if (data.success) {
         setUsers(data.users);
@@ -92,7 +161,7 @@ function Admin() {
     } catch (error) {
 
       console.error(
-        "Failed to load users:",
+        "Users error:",
         error
       );
 
@@ -136,10 +205,12 @@ function Admin() {
         `http://localhost:5000/api/admin/users/${selectedUser.id}`,
         {
           method: "DELETE",
+          headers: getAuthHeaders(),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
 
       if (!response.ok) {
@@ -153,7 +224,8 @@ function Admin() {
       }
 
 
-      // Remove from UI immediately
+      // Remove user from UI
+
       setUsers((currentUsers) =>
         currentUsers.filter(
           (item) =>
@@ -162,7 +234,8 @@ function Admin() {
       );
 
 
-      // Update user count
+      // Update statistics
+
       setStats((currentStats) => ({
         ...currentStats,
         users: Math.max(
@@ -178,7 +251,10 @@ function Admin() {
 
     } catch (error) {
 
-      console.error(error);
+      console.error(
+        "Delete user error:",
+        error
+      );
 
       alert(
         "Server is not responding."
@@ -189,6 +265,10 @@ function Admin() {
   };
 
 
+  // ==========================================
+  // PAGE
+  // ==========================================
+
   return (
 
     <div className="min-h-screen bg-slate-950 text-white">
@@ -196,9 +276,7 @@ function Admin() {
       <div className="max-w-7xl mx-auto px-6 py-10">
 
 
-        {/* ======================================
-            HEADER
-        ====================================== */}
+        {/* HEADER */}
 
         <div className="flex justify-between items-center">
 
@@ -241,8 +319,6 @@ function Admin() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-10">
 
 
-          {/* USERS */}
-
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
             <p className="text-slate-400">
@@ -250,17 +326,13 @@ function Admin() {
             </p>
 
             <p className="text-3xl font-bold mt-3">
-
               {loadingStats
                 ? "..."
                 : stats.users}
-
             </p>
 
           </div>
 
-
-          {/* DISCUSSIONS */}
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
@@ -269,17 +341,13 @@ function Admin() {
             </p>
 
             <p className="text-3xl font-bold mt-3">
-
               {loadingStats
                 ? "..."
                 : stats.discussions}
-
             </p>
 
           </div>
 
-
-          {/* COMMENTS */}
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
@@ -288,17 +356,13 @@ function Admin() {
             </p>
 
             <p className="text-3xl font-bold mt-3">
-
               {loadingStats
                 ? "..."
                 : stats.comments}
-
             </p>
 
           </div>
 
-
-          {/* LIKES */}
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
@@ -307,11 +371,9 @@ function Admin() {
             </p>
 
             <p className="text-3xl font-bold mt-3">
-
               {loadingStats
                 ? "..."
                 : stats.likes}
-
             </p>
 
           </div>
@@ -320,7 +382,7 @@ function Admin() {
 
 
         {/* ======================================
-            MANAGE USERS
+            USERS
         ====================================== */}
 
         <div className="mt-12">
@@ -345,8 +407,6 @@ function Admin() {
 
           </div>
 
-
-          {/* USER TABLE */}
 
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
 
@@ -406,8 +466,6 @@ function Admin() {
                         className="border-t border-slate-800 hover:bg-slate-800/50 transition"
                       >
 
-                        {/* USER */}
-
                         <td className="px-6 py-4">
 
                           <div className="flex items-center gap-3">
@@ -415,8 +473,18 @@ function Admin() {
                             <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center">
 
                               {item.role === "ADMIN"
-                                ? <Shield size={18} className="text-orange-500" />
-                                : <User size={18} className="text-slate-400" />
+                                ? (
+                                  <Shield
+                                    size={18}
+                                    className="text-orange-500"
+                                  />
+                                )
+                                : (
+                                  <User
+                                    size={18}
+                                    className="text-slate-400"
+                                  />
+                                )
                               }
 
                             </div>
@@ -438,14 +506,10 @@ function Admin() {
                         </td>
 
 
-                        {/* EMAIL */}
-
                         <td className="px-6 py-4 text-slate-400">
                           {item.email}
                         </td>
 
-
-                        {/* ROLE */}
 
                         <td className="px-6 py-4">
 
@@ -456,22 +520,16 @@ function Admin() {
                                 : "bg-slate-800 text-slate-400"
                             }`}
                           >
-
                             {item.role}
-
                           </span>
 
                         </td>
 
 
-                        {/* DATE */}
-
                         <td className="px-6 py-4 text-slate-400 text-sm">
                           {item.created_at || "—"}
                         </td>
 
-
-                        {/* ACTION */}
 
                         <td className="px-6 py-4 text-right">
 
@@ -514,9 +572,7 @@ function Admin() {
         </div>
 
 
-        {/* ======================================
-            FUTURE ADMIN FEATURES
-        ====================================== */}
+        {/* FUTURE FEATURES */}
 
         <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-5">
 
@@ -560,7 +616,6 @@ function Admin() {
       </div>
 
     </div>
-
   );
 }
 

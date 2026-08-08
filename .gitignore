@@ -16,3 +16,11 @@ Thumbs.db
 
 # VS Code
 .vscode/
+
+# SQLite database
+server/orbit.db
+server/*.db
+
+# Build
+dist/
+build/

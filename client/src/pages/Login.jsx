@@ -13,7 +13,6 @@ function Login() {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    // Frontend validation
     if (!email.trim() || !password.trim()) {
       setSuccess(false);
       setMessage("Please enter email and password.");
@@ -25,11 +24,9 @@ function Login() {
         "http://localhost:5000/api/auth/login",
         {
           method: "POST",
-
           headers: {
             "Content-Type": "application/json",
           },
-
           body: JSON.stringify({
             email: email.trim(),
             password,
@@ -41,59 +38,58 @@ function Login() {
 
       if (!response.ok) {
         setSuccess(false);
-        setMessage(data.message);
+        setMessage(data.message || "Login failed.");
         return;
       }
 
       // ==========================================
-      // LOGIN SUCCESS
+      // SAVE JWT
       // ==========================================
 
-      setSuccess(true);
-      setMessage(data.message);
+      localStorage.setItem(
+        "orbitToken",
+        data.token
+      );
 
-      // Store logged-in user
+      // ==========================================
+      // SAVE USER
+      // ==========================================
+
       localStorage.setItem(
         "orbitUser",
         JSON.stringify(data.user)
       );
 
-      console.log("Logged in user:", data.user);
+      console.log("Login successful:", data.user);
+
+      setSuccess(true);
+      setMessage(data.message);
 
       // ==========================================
       // ROLE BASED REDIRECT
       // ==========================================
 
       if (data.user.role === "ADMIN") {
-
         navigate("/admin");
-
       } else {
-
         navigate("/");
-
       }
 
     } catch (error) {
 
-      console.error(error);
+      console.error("LOGIN ERROR:", error);
 
       setSuccess(false);
-      setMessage(
-        "Server is not responding."
-      );
+      setMessage("Server is not responding.");
 
     }
   };
+
 
   return (
     <div className="min-h-screen bg-slate-950 flex justify-center items-center px-4">
 
       <div className="bg-slate-900 p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-800">
-
-        {/* ======================================
-            HEADER
-        ====================================== */}
 
         <h1 className="text-5xl font-bold text-white text-center">
           Welcome Back
@@ -104,12 +100,9 @@ function Login() {
         </p>
 
 
-        {/* ======================================
-            MESSAGE
-        ====================================== */}
+        {/* MESSAGE */}
 
         {message && (
-
           <div
             className={`mb-5 px-4 py-3 rounded-xl text-center font-medium ${
               success
@@ -119,20 +112,15 @@ function Login() {
           >
             {message}
           </div>
-
         )}
 
 
-        {/* ======================================
-            LOGIN FORM
-        ====================================== */}
+        {/* LOGIN FORM */}
 
         <form
           onSubmit={handleLogin}
           className="space-y-5"
         >
-
-          {/* EMAIL */}
 
           <input
             type="email"
@@ -145,8 +133,6 @@ function Login() {
           />
 
 
-          {/* PASSWORD */}
-
           <input
             type="password"
             placeholder="Password"
@@ -157,8 +143,6 @@ function Login() {
             className="w-full px-5 py-4 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-orange-500"
           />
 
-
-          {/* LOGIN BUTTON */}
 
           <button
             type="submit"

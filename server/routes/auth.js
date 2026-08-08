@@ -1,14 +1,25 @@
+require("dotenv").config();
+
 const express = require("express");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const db = require("../database/database");
 
 const router = express.Router();
 
 
 // ======================================================
+// JWT SECRET
+// ======================================================
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+
+// ======================================================
 // REGISTER
 // ======================================================
 
-router.post("/register", (req, res) => {
+router.post("/register", async (req, res) => {
 
     console.log("===== REGISTER API CALLED =====");
 
@@ -26,34 +37,17 @@ router.post("/register", (req, res) => {
 
     try {
 
-        const statement = db.prepare(`
-            INSERT INTO users
-            (name, email, password)
-            VALUES (?, ?, ?)
-        `);
+        // ==========================================
+        // CHECK EXISTING USER
+        // ==========================================
 
-        statement.run(
-            name,
-            email,
-            password
-        );
+        const existingUser = db.prepare(`
+            SELECT id
+            FROM users
+            WHERE email = ?
+        `).get(email);
 
-        console.log("User saved:", email);
-
-        res.json({
-            success: true,
-            message: "User registered successfully!"
-        });
-
-    } catch (error) {
-
-        console.error("REGISTER ERROR:", error);
-
-        // Duplicate email
-        if (
-            error.code ===
-            "SQLITE_CONSTRAINT_UNIQUE"
-        ) {
+        if (existingUser) {
 
             return res.status(409).json({
                 success: false,
@@ -62,9 +56,64 @@ router.post("/register", (req, res) => {
 
         }
 
+
+        // ==========================================
+        // HASH PASSWORD
+        // ==========================================
+
+        const hashedPassword =
+            await bcrypt.hash(password, 10);
+
+
+        // ==========================================
+        // SAVE USER
+        // ==========================================
+
+        const statement = db.prepare(`
+            INSERT INTO users
+            (name, email, password)
+            VALUES (?, ?, ?)
+        `);
+
+        const result = statement.run(
+            name,
+            email,
+            hashedPassword
+        );
+
+
+        console.log(
+            "User saved:",
+            email
+        );
+
+
+        res.json({
+
+            success: true,
+
+            message:
+                "User registered successfully!",
+
+            userId: result.lastInsertRowid
+
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "REGISTER ERROR:",
+            error
+        );
+
         res.status(500).json({
+
             success: false,
-            message: "Something went wrong."
+
+            message:
+                "Something went wrong."
+
         });
 
     }
@@ -76,30 +125,37 @@ router.post("/register", (req, res) => {
 // LOGIN
 // ======================================================
 
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
 
     console.log("===== LOGIN API CALLED =====");
 
     const { email, password } = req.body;
 
-    console.log("Email:", email);
 
-    // Don't log passwords
-    // console.log("Password:", password);
+    // ==========================================
+    // VALIDATION
+    // ==========================================
 
-    // Basic validation
     if (!email || !password) {
 
         return res.status(400).json({
+
             success: false,
-            message: "Please enter email and password."
+
+            message:
+                "Please enter email and password."
+
         });
 
     }
 
+
     try {
 
-        // Find user
+        // ==========================================
+        // FIND USER
+        // ==========================================
+
         const user = db.prepare(`
             SELECT
                 id,
@@ -112,21 +168,32 @@ router.post("/login", (req, res) => {
         `).get(email);
 
 
-        // User doesn't exist
         if (!user) {
 
-            console.log("USER NOT FOUND:", email);
-
             return res.status(401).json({
+
                 success: false,
-                message: "Invalid email or password."
+
+                message:
+                    "Invalid email or password."
+
             });
 
         }
 
 
-        // Check password
-        if (user.password !== password) {
+        // ==========================================
+        // COMPARE PASSWORD
+        // ==========================================
+
+        const passwordMatch =
+            await bcrypt.compare(
+                password,
+                user.password
+            );
+
+
+        if (!passwordMatch) {
 
             console.log(
                 "PASSWORD DOES NOT MATCH:",
@@ -134,16 +201,38 @@ router.post("/login", (req, res) => {
             );
 
             return res.status(401).json({
+
                 success: false,
-                message: "Invalid email or password."
+
+                message:
+                    "Invalid email or password."
+
             });
 
         }
 
 
-        // ==============================================
-        // LOGIN SUCCESS
-        // ==============================================
+        // ==========================================
+        // CREATE JWT
+        // ==========================================
+
+        const token = jwt.sign(
+
+            {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            },
+
+            JWT_SECRET,
+
+            {
+                expiresIn: "2h"
+            }
+
+        );
+
 
         console.log(
             "LOGIN SUCCESS:",
@@ -153,21 +242,33 @@ router.post("/login", (req, res) => {
         );
 
 
-        // Never send password to frontend
+        // ==========================================
+        // RESPONSE
+        // ==========================================
+
         res.json({
 
             success: true,
 
-            message: "Login successful!",
+            message:
+                "Login successful!",
+
+            token,
 
             user: {
+
                 id: user.id,
+
                 name: user.name,
+
                 email: user.email,
+
                 role: user.role
+
             }
 
         });
+
 
     } catch (error) {
 
@@ -177,8 +278,12 @@ router.post("/login", (req, res) => {
         );
 
         res.status(500).json({
+
             success: false,
-            message: "Login failed."
+
+            message:
+                "Login failed."
+
         });
 
     }
