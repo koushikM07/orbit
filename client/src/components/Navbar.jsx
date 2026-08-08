@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
+
 import {
   Globe,
   LogIn,
@@ -7,17 +8,16 @@ import {
   Film,
   Compass,
   Shield,
+  User,
 } from "lucide-react";
 
 function Navbar() {
 
   const navigate = useNavigate();
 
-  const token =
-    localStorage.getItem("orbitToken");
+  const token = localStorage.getItem("orbitToken");
 
-  const storedUser =
-    localStorage.getItem("orbitUser");
+  const storedUser = localStorage.getItem("orbitUser");
 
   let user = null;
 
@@ -94,9 +94,9 @@ function Navbar() {
           </Link>
 
 
-          {/* ==============================================
-              LOGGED IN NAVIGATION
-          ============================================== */}
+          {/* =================================================
+              LOGGED IN
+          ================================================= */}
 
           {token && user ? (
 
@@ -131,6 +131,20 @@ function Navbar() {
               </Link>
 
 
+              {/* PROFILE */}
+
+              <Link
+                to="/profile"
+                className="flex items-center gap-2 text-slate-300 hover:text-orange-500 transition"
+              >
+
+                <User size={18} />
+
+                Profile
+
+              </Link>
+
+
               {/* ADMIN */}
 
               {user.role === "ADMIN" && (
@@ -149,7 +163,7 @@ function Navbar() {
               )}
 
 
-              {/* USER */}
+              {/* USER GREETING */}
 
               <span className="text-slate-400">
                 Hi, {user.name}
@@ -173,9 +187,9 @@ function Navbar() {
 
           ) : (
 
-            /* ==============================================
+            /* =================================================
                LOGGED OUT
-            ============================================== */
+            ================================================= */
 
             <>
 

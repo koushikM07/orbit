@@ -8,6 +8,7 @@ import Register from "./pages/Register";
 import Movies from "./pages/Movies";
 import Explore from "./pages/Explore";
 import Admin from "./pages/Admin";
+import Profile from "./pages/Profile";
 
 
 // =====================================================
@@ -81,7 +82,14 @@ function App() {
             </ProtectedRoute>
           }
         />
-
+        <Route
+  path="/profile"
+  element={
+    <ProtectedRoute>
+      <Profile />
+    </ProtectedRoute>
+  }
+/>
 
         {/* ==========================================
             ADMIN

@@ -5,9 +5,9 @@ const db = new Database("orbit.db");
 console.log("SQLite database connected!");
 
 
-// ==========================================
-// USERS TABLE
-// ==========================================
+// =====================================================
+// USERS
+// =====================================================
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -21,37 +21,9 @@ db.exec(`
 `);
 
 
-// ==========================================
-// ADD ROLE TO EXISTING USERS
-// ==========================================
-
-try {
-
-    db.exec(`
-        ALTER TABLE users
-        ADD COLUMN role TEXT NOT NULL DEFAULT 'USER'
-    `);
-
-    console.log("Role column added to users!");
-
-} catch (error) {
-
-    // This happens if the column already exists.
-    if (!error.message.includes("duplicate column name")) {
-
-        console.error(
-            "Error adding role column:",
-            error
-        );
-
-    }
-
-}
-
-
-// ==========================================
-// DISCUSSIONS TABLE
-// ==========================================
+// =====================================================
+// DISCUSSIONS
+// =====================================================
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS discussions (
@@ -69,9 +41,9 @@ db.exec(`
 `);
 
 
-// ==========================================
-// COMMENTS TABLE
-// ==========================================
+// =====================================================
+// COMMENTS
+// =====================================================
 
 db.exec(`
     CREATE TABLE IF NOT EXISTS comments (
@@ -89,26 +61,44 @@ db.exec(`
     )
 `);
 
-db.exec(`
-    CREATE TABLE IF NOT EXISTS discussion_likes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        discussion_id INTEGER NOT NULL,
-        user_id INTEGER NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
-        UNIQUE(discussion_id, user_id),
+// =====================================================
+// AVATAR MIGRATION
+// =====================================================
 
-        FOREIGN KEY (discussion_id)
-        REFERENCES discussions(id),
+// Add avatar_url to existing databases.
+// If the column already exists, nothing happens.
 
-        FOREIGN KEY (user_id)
-        REFERENCES users(id)
-    )
-`);
+try {
+
+    db.exec(`
+        ALTER TABLE users
+        ADD COLUMN avatar_url TEXT
+    `);
+
+    console.log("avatar_url column added.");
+
+} catch (error) {
+
+    // SQLITE_ERROR means the column probably already exists.
+    // We don't need to do anything in that case.
+
+    if (
+        !error.message.includes(
+            "duplicate column name"
+        )
+    ) {
+        console.error(
+            "Avatar migration error:",
+            error
+        );
+    }
+
+}
+
 
 console.log("Users table ready!");
 console.log("Discussions table ready!");
 console.log("Comments table ready!");
-
 
 module.exports = db;
