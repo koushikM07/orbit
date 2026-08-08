@@ -1,72 +1,105 @@
 import { useState } from "react";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 function Login() {
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    if (!email.trim() || !password.trim()) {
+      setSuccess(false);
+      setMessage("Please fill all the fields.");
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+  setSuccess(true);
+  setMessage(data.message);
+
+  setTimeout(() => {
+    navigate("/");
+  }, 1000);
+      } else {
+        setSuccess(false);
+        setMessage(data.message);
+      }
+    } catch (error) {
+      console.error(error);
+      setSuccess(false);
+      setMessage("Server is not responding.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 flex justify-center items-center px-4">
-
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-10 w-full max-w-md shadow-2xl">
+      <div className="bg-slate-900 p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-800">
 
         <h1 className="text-4xl font-bold text-white text-center">
           Welcome Back
         </h1>
 
-        <p className="text-slate-400 text-center mt-3">
-          Login to continue to Orbit
+        <p className="text-slate-400 text-center mt-3 mb-8">
+          Login to your Orbit account
         </p>
 
-        <div className="mt-8 space-y-6">
-
-          <div className="relative">
-
-            <Mail
-              className="absolute left-4 top-4 text-slate-400"
-              size={20}
-            />
-
-            <input
-              type="email"
-              placeholder="Email"
-              className="w-full bg-slate-800 text-white rounded-xl py-4 pl-12 pr-4 outline-none border border-slate-700 focus:border-orange-500"
-            />
-
+        {message && (
+          <div
+            className={`mb-5 px-4 py-3 rounded-lg text-center font-medium ${
+              success
+                ? "bg-green-600 text-white"
+                : "bg-red-600 text-white"
+            }`}
+          >
+            {message}
           </div>
+        )}
 
-          <div className="relative">
+        <form onSubmit={handleLogin} className="space-y-5">
 
-            <Lock
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-orange-500 transition"
-              size={20}
-            />
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-orange-500"
+          />
 
-            <input
-              type={showPassword ? "text" : "password"}
-              placeholder="Password"
-              className="w-full bg-slate-800 text-white rounded-xl py-4 pl-12 pr-12 outline-none border border-slate-700 focus:border-orange-500"
-            />
-
-            <button
-  type="button"
-  onClick={() => setShowPassword(!showPassword)}
-  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-orange-500 transition"
->
-  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-</button>
-
-          </div>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-orange-500"
+          />
 
           <button
-            className="w-full bg-orange-500 hover:bg-orange-600 py-4 rounded-xl text-white font-semibold transition"
+            type="submit"
+            className="w-full bg-orange-500 hover:bg-orange-600 py-3 rounded-xl text-white font-semibold transition"
           >
             Login
           </button>
 
-        </div>
-
+        </form>
       </div>
-
     </div>
   );
 }
