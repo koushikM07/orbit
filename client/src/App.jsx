@@ -1,4 +1,6 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+
+import Navbar from "./components/Navbar";
 
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -7,22 +9,95 @@ import Movies from "./pages/Movies";
 import Explore from "./pages/Explore";
 import Admin from "./pages/Admin";
 
+
+// =====================================================
+// PROTECTED ROUTE
+// =====================================================
+
+function ProtectedRoute({ children }) {
+
+  const token = localStorage.getItem("orbitToken");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
+
+
+// =====================================================
+// APP
+// =====================================================
+
 function App() {
+
   return (
     <BrowserRouter>
+
+      {/* One global Navbar only */}
+      <Navbar />
+
       <Routes>
-        <Route path="/" element={<Home />} />
 
-        <Route path="/login" element={<Login />} />
+        {/* ==========================================
+            PUBLIC
+        ========================================== */}
 
-        <Route path="/register" element={<Register />} />
+        <Route
+          path="/"
+          element={<Home />}
+        />
 
-        <Route path="/movies" element={<Movies />} />
+        <Route
+          path="/login"
+          element={<Login />}
+        />
 
-        <Route path="/explore" element={<Explore />} />
+        <Route
+          path="/register"
+          element={<Register />}
+        />
 
-        <Route path="/admin" element={<Admin />} />
+
+        {/* ==========================================
+            PROTECTED
+        ========================================== */}
+
+        <Route
+          path="/movies"
+          element={
+            <ProtectedRoute>
+              <Movies />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/explore"
+          element={
+            <ProtectedRoute>
+              <Explore />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* ==========================================
+            ADMIN
+        ========================================== */}
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <Admin />
+            </ProtectedRoute>
+          }
+        />
+
       </Routes>
+
     </BrowserRouter>
   );
 }

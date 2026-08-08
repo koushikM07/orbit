@@ -23,21 +23,51 @@ function Movies() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
-  // Temporary user ID.
-  // Later this will come from login/session/JWT.
-  const currentUserId = 1;
+  const API_URL = "http://localhost:5000/api/discussions";
 
-  // ==========================================
+  // =====================================================
+  // GET JWT
+  // =====================================================
+
+  const getToken = () => {
+    return localStorage.getItem("orbitToken");
+  };
+
+  // =====================================================
+  // COMMON AUTH HEADERS
+  // =====================================================
+
+  const getAuthHeaders = () => {
+    const token = getToken();
+
+    return {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    };
+  };
+
+  // =====================================================
   // LOAD DISCUSSIONS
-  // ==========================================
+  // =====================================================
 
   const fetchDiscussions = async () => {
     try {
       setLoading(true);
+      setMessage("");
 
-      const response = await fetch(
-        "http://localhost:5000/api/discussions"
-      );
+      const token = getToken();
+
+      if (!token) {
+        setMessage("Please login to view discussions.");
+        return;
+      }
+
+      const response = await fetch(API_URL, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
       const data = await response.json();
 
@@ -51,10 +81,7 @@ function Movies() {
         const formattedDiscussions = data.discussions.map(
           (discussion) => ({
             ...discussion,
-
-            // Temporary frontend state.
             liked: discussion.liked || false,
-
             comments: discussion.comments || [],
           })
         );
@@ -67,23 +94,25 @@ function Movies() {
         error
       );
 
-      setMessage("Failed to load discussions.");
+      setMessage(
+        error.message || "Failed to load discussions."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // ==========================================
+  // =====================================================
   // LOAD WHEN PAGE OPENS
-  // ==========================================
+  // =====================================================
 
   useEffect(() => {
     fetchDiscussions();
   }, []);
 
-  // ==========================================
+  // =====================================================
   // CREATE / UPDATE DISCUSSION
-  // ==========================================
+  // =====================================================
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -93,25 +122,27 @@ function Movies() {
       return;
     }
 
-    // ========================================
+    const token = getToken();
+
+    if (!token) {
+      setMessage("Please login first.");
+      return;
+    }
+
+    // =================================================
     // UPDATE
-    // ========================================
+    // =================================================
 
     if (editingId !== null) {
       try {
         const response = await fetch(
-          `http://localhost:5000/api/discussions/${editingId}`,
+          `${API_URL}/${editingId}`,
           {
             method: "PUT",
-
-            headers: {
-              "Content-Type": "application/json",
-            },
-
+            headers: getAuthHeaders(),
             body: JSON.stringify({
               title: title.trim(),
               description: description.trim(),
-              user_id: currentUserId,
             }),
           }
         );
@@ -147,28 +178,20 @@ function Movies() {
       return;
     }
 
-    // ========================================
+    // =================================================
     // CREATE
-    // ========================================
+    // =================================================
 
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/discussions",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            user_id: currentUserId,
-            type: "DISCUSSION",
-            title: title.trim(),
-            description: description.trim(),
-          }),
-        }
-      );
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          type: "DISCUSSION",
+          title: title.trim(),
+          description: description.trim(),
+        }),
+      });
 
       const data = await response.json();
 
@@ -198,19 +221,16 @@ function Movies() {
     }
   };
 
-  // ==========================================
+  // =====================================================
   // START EDIT
-  // ==========================================
+  // =====================================================
 
   const handleEdit = (discussion) => {
     setTitle(discussion.title);
-
     setDescription(discussion.description);
 
     setEditingId(discussion.id);
-
     setShowForm(true);
-
     setMessage("");
 
     window.scrollTo({
@@ -219,9 +239,9 @@ function Movies() {
     });
   };
 
-  // ==========================================
+  // =====================================================
   // DELETE
-  // ==========================================
+  // =====================================================
 
   const handleDelete = async (id) => {
     const confirmed = window.confirm(
@@ -234,17 +254,10 @@ function Movies() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/discussions/${id}`,
+        `${API_URL}/${id}`,
         {
           method: "DELETE",
-
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            user_id: currentUserId,
-          }),
+          headers: getAuthHeaders(),
         }
       );
 
@@ -277,52 +290,17 @@ function Movies() {
     }
   };
 
-  // ==========================================
+  // =====================================================
   // LIKE / UNLIKE
-  // ==========================================
+  // =====================================================
 
   const handleLike = async (discussion) => {
-    // Remember current state
-    const wasLiked = discussion.liked;
-
-    // Update UI immediately
-    setDiscussions((currentDiscussions) =>
-      currentDiscussions.map((item) => {
-        if (item.id !== discussion.id) {
-          return item;
-        }
-
-        const newLikedState = !item.liked;
-
-        return {
-          ...item,
-
-          liked: newLikedState,
-
-          likes: newLikedState
-            ? (item.likes || 0) + 1
-            : Math.max(
-                0,
-                (item.likes || 0) - 1
-              ),
-        };
-      })
-    );
-
-    // Tell backend
     try {
       const response = await fetch(
-        `http://localhost:5000/api/discussions/${discussion.id}/like`,
+        `${API_URL}/${discussion.id}/like`,
         {
           method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-          },
-
-          body: JSON.stringify({
-            user_id: currentUserId,
-          }),
+          headers: getAuthHeaders(),
         }
       );
 
@@ -330,53 +308,39 @@ function Movies() {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Like request failed."
+          data.message ||
+            "Like request failed."
         );
       }
 
-      /*
-       * IMPORTANT:
-       * Our current backend only increments likes.
-       *
-       * So we DON'T call fetchDiscussions()
-       * here, otherwise the local red-heart state
-       * would immediately be reset.
-       */
+      // Backend tells us the actual state.
+      setDiscussions((currentDiscussions) =>
+        currentDiscussions.map((item) =>
+          item.id === discussion.id
+            ? {
+                ...item,
+                liked: data.liked,
+                likes: data.likes,
+              }
+            : item
+        )
+      );
     } catch (error) {
       console.error(
         "Like request failed:",
         error
       );
 
-      // Roll UI back if API failed
-      setDiscussions((currentDiscussions) =>
-        currentDiscussions.map((item) => {
-          if (item.id !== discussion.id) {
-            return item;
-          }
-
-          return {
-            ...item,
-
-            liked: wasLiked,
-
-            likes: wasLiked
-              ? (item.likes || 0) + 1
-              : Math.max(
-                  0,
-                  (item.likes || 0) - 1
-                ),
-          };
-        })
+      setMessage(
+        error.message ||
+          "Unable to update like."
       );
-
-      setMessage("Unable to update like.");
     }
   };
 
-  // ==========================================
+  // =====================================================
   // OPEN / CLOSE COMMENTS
-  // ==========================================
+  // =====================================================
 
   const toggleComments = (id) => {
     if (openComments === id) {
@@ -388,9 +352,9 @@ function Movies() {
     }
   };
 
-  // ==========================================
+  // =====================================================
   // ADD COMMENT
-  // ==========================================
+  // =====================================================
 
   const handleAddComment = async (discussionId) => {
     const trimmedComment = commentText.trim();
@@ -401,16 +365,11 @@ function Movies() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/discussions/${discussionId}/comments`,
+        `${API_URL}/${discussionId}/comments`,
         {
           method: "POST",
-
-          headers: {
-            "Content-Type": "application/json",
-          },
-
+          headers: getAuthHeaders(),
           body: JSON.stringify({
-            user_id: currentUserId,
             comment: trimmedComment,
           }),
         }
@@ -428,7 +387,24 @@ function Movies() {
 
       setCommentText("");
 
-      await fetchDiscussions();
+      // Add the returned comment immediately.
+      if (data.comment) {
+        setDiscussions((currentDiscussions) =>
+          currentDiscussions.map((discussion) =>
+            discussion.id === discussionId
+              ? {
+                  ...discussion,
+                  comments: [
+                    ...(discussion.comments || []),
+                    data.comment,
+                  ],
+                }
+              : discussion
+          )
+        );
+      } else {
+        await fetchDiscussions();
+      }
     } catch (error) {
       console.error(error);
 
@@ -438,25 +414,21 @@ function Movies() {
     }
   };
 
-  // ==========================================
+  // =====================================================
   // CANCEL FORM
-  // ==========================================
+  // =====================================================
 
   const handleCancel = () => {
     setTitle("");
-
     setDescription("");
-
     setEditingId(null);
-
     setShowForm(false);
-
     setMessage("");
   };
 
-  // ==========================================
+  // =====================================================
   // RENDER
-  // ==========================================
+  // =====================================================
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
@@ -611,7 +583,6 @@ function Movies() {
                   </p>
 
                 </div>
-
               )}
 
             {/* DISCUSSIONS */}
@@ -647,6 +618,7 @@ function Movies() {
                           : "Like"
                       }
                     >
+
                       <Heart
                         size={18}
                         fill={
@@ -655,7 +627,9 @@ function Movies() {
                             : "none"
                         }
                       />
+
                     </button>
+
 
                     {/* EDIT */}
 
@@ -668,6 +642,7 @@ function Movies() {
                     >
                       <Pencil size={18} />
                     </button>
+
 
                     {/* DELETE */}
 
@@ -682,6 +657,7 @@ function Movies() {
                     </button>
 
                   </div>
+
 
                   {/* =================================
                       CONTENT
@@ -699,6 +675,7 @@ function Movies() {
                     {discussion.description}
                   </p>
 
+
                   {/* =================================
                       USER / LIKES / COMMENTS
                   ================================= */}
@@ -709,6 +686,7 @@ function Movies() {
                       👤 {discussion.user || "User"}
                     </span>
 
+
                     {/* LIKE COUNT */}
 
                     <span
@@ -718,6 +696,7 @@ function Movies() {
                           : ""
                       }`}
                     >
+
                       <Heart
                         size={15}
                         fill={
@@ -728,7 +707,9 @@ function Movies() {
                       />
 
                       {discussion.likes || 0}
+
                     </span>
+
 
                     {/* COMMENT COUNT */}
 
@@ -745,13 +726,16 @@ function Movies() {
                           : "hover:text-orange-500"
                       }`}
                     >
+
                       <MessageCircle size={15} />
 
                       {discussion.comments?.length ||
                         0}
+
                     </button>
 
                   </div>
+
 
                   {/* =================================
                       COMMENTS
@@ -765,6 +749,7 @@ function Movies() {
                       <h3 className="text-lg font-semibold mb-4">
                         💬 Comments
                       </h3>
+
 
                       {/* EXISTING COMMENTS */}
 
@@ -782,16 +767,10 @@ function Movies() {
                         ) : (
 
                           discussion.comments.map(
-                            (
-                              comment,
-                              commentIndex
-                            ) => (
+                            (comment) => (
 
                               <div
-                                key={
-                                  comment.id ||
-                                  commentIndex
-                                }
+                                key={comment.id}
                                 className="bg-slate-800 rounded-xl p-4"
                               >
 
@@ -814,6 +793,7 @@ function Movies() {
                         )}
 
                       </div>
+
 
                       {/* ADD COMMENT */}
 

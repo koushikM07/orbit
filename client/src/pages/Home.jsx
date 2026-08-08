@@ -1,4 +1,3 @@
-import Navbar from "../components/Navbar";
 import Hero from "../components/Hero";
 import TopicCard from "../components/TopicCard";
 import { Link } from "react-router-dom";
@@ -7,8 +6,6 @@ function Home() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
 
-      {/* Navbar */}
-      <Navbar />
 
       {/* Hero Section */}
       <Hero />

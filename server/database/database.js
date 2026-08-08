@@ -89,6 +89,22 @@ db.exec(`
     )
 `);
 
+db.exec(`
+    CREATE TABLE IF NOT EXISTS discussion_likes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        discussion_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+        UNIQUE(discussion_id, user_id),
+
+        FOREIGN KEY (discussion_id)
+        REFERENCES discussions(id),
+
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+    )
+`);
 
 console.log("Users table ready!");
 console.log("Discussions table ready!");
