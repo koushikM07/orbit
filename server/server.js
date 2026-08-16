@@ -1,33 +1,140 @@
 const express = require("express");
 const cors = require("cors");
+const http = require("http");
+const { Server } = require("socket.io");
 
 const discussionRoutes = require("./routes/discussion");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
-const userRoutes = require("./routes/user");
+const chatRoutes = require("./routes/chat");
 
 require("./database/database");
 
 const app = express();
 
 app.use(cors());
+
 app.use(express.json());
 
-app.use("/api/auth", authRoutes);
-app.use("/api/discussions", discussionRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/users", userRoutes);
+
+// =====================================================
+// HTTP SERVER
+// =====================================================
+
+const server = http.createServer(app);
 
 
-app.get("/", (req, res) => {
-    res.send("Orbit Backend Running 🚀");
+// =====================================================
+// SOCKET.IO
+// =====================================================
+
+const io = new Server(server, {
+
+    cors: {
+        origin: "http://localhost:5173",
+        methods: ["GET", "POST"]
+    }
+
 });
 
 
+// =====================================================
+// ATTACH IO TO REQUEST
+// =====================================================
+
+app.use((req, res, next) => {
+
+    req.io = io;
+
+    next();
+
+});
+
+
+// =====================================================
+// SOCKET CONNECTION
+// =====================================================
+
+io.on("connection", (socket) => {
+
+    console.log(
+        "User connected:",
+        socket.id
+    );
+
+
+    socket.on("join-chat", () => {
+
+        socket.join("orbit-chat");
+
+        console.log(
+            "User joined Orbit Chat:",
+            socket.id
+        );
+
+    });
+
+
+    socket.on("disconnect", () => {
+
+        console.log(
+            "User disconnected:",
+            socket.id
+        );
+
+    });
+
+});
+
+
+// =====================================================
+// ROUTES
+// =====================================================
+
+app.use(
+    "/api/auth",
+    authRoutes
+);
+
+app.use(
+    "/api/discussions",
+    discussionRoutes
+);
+
+app.use(
+    "/api/admin",
+    adminRoutes
+);
+
+app.use(
+    "/api/chat",
+    chatRoutes
+);
+
+
+// =====================================================
+// ROOT
+// =====================================================
+
+app.get("/", (req, res) => {
+
+    res.send(
+        "Orbit Backend Running 🚀"
+    );
+
+});
+
+
+// =====================================================
+// START SERVER
+// =====================================================
+
 const PORT = 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
+
     console.log(
         `Server running on http://localhost:${PORT}`
     );
+
 });

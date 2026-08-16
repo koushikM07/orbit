@@ -61,6 +61,23 @@ db.exec(`
     )
 `);
 
+// =====================================================
+// CHAT MESSAGES
+// =====================================================
+
+db.exec(`
+    CREATE TABLE IF NOT EXISTS messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        message TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+    )
+`);
+
+console.log("Messages table ready!");
 
 // =====================================================
 // AVATAR MIGRATION

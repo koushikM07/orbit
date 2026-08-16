@@ -9,6 +9,7 @@ import Movies from "./pages/Movies";
 import Explore from "./pages/Explore";
 import Admin from "./pages/Admin";
 import Profile from "./pages/Profile";
+import Chat from "./pages/Chat";
 
 
 // =====================================================
@@ -59,7 +60,10 @@ function App() {
           path="/register"
           element={<Register />}
         />
-
+      <Route
+  path="/chat"
+  element={<Chat />}
+/>
 
         {/* ==========================================
             PROTECTED

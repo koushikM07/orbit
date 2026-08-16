@@ -9,6 +9,7 @@ import {
   Compass,
   Shield,
   User,
+  MessageCircle,
 } from "lucide-react";
 
 function Navbar() {
@@ -130,7 +131,13 @@ function Navbar() {
 
               </Link>
 
-
+              <Link
+  to="/chat"
+  className="flex items-center gap-2 text-slate-300 hover:text-orange-500 transition"
+>
+  <MessageCircle size={18} />
+  Chat
+</Link>
               {/* PROFILE */}
 
               <Link
