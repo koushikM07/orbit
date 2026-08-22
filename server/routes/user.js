@@ -2,7 +2,8 @@ const express = require("express");
 
 const db = require("../database/database");
 
-const authMiddleware = require("../middleware/authMiddleware");
+const authMiddleware =
+    require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -28,16 +29,13 @@ router.get("/me", (req, res) => {
                 name,
                 email,
                 role,
+                orbit_id,
                 avatar_url,
                 created_at
             FROM users
             WHERE id = ?
         `).get(req.user.id);
 
-
-        // -----------------------------------------------
-        // USER NOT FOUND
-        // -----------------------------------------------
 
         if (!user) {
 
@@ -53,42 +51,55 @@ router.get("/me", (req, res) => {
         }
 
 
-        // -----------------------------------------------
-        // DISCUSSION COUNT
-        // -----------------------------------------------
+        // =================================================
+        // DISCUSSIONS COUNT
+        // =================================================
 
-        const discussions = db.prepare(`
-            SELECT COUNT(*) AS count
-            FROM discussions
-            WHERE user_id = ?
-        `).get(req.user.id).count;
-
-
-        // -----------------------------------------------
-        // COMMENT COUNT
-        // -----------------------------------------------
-
-        const comments = db.prepare(`
-            SELECT COUNT(*) AS count
-            FROM comments
-            WHERE user_id = ?
-        `).get(req.user.id).count;
+        const discussions =
+            db.prepare(`
+                SELECT COUNT(*) AS count
+                FROM discussions
+                WHERE user_id = ?
+            `).get(
+                req.user.id
+            ).count;
 
 
-        // -----------------------------------------------
+        // =================================================
+        // COMMENTS COUNT
+        // =================================================
+
+        const comments =
+            db.prepare(`
+                SELECT COUNT(*) AS count
+                FROM comments
+                WHERE user_id = ?
+            `).get(
+                req.user.id
+            ).count;
+
+
+        // =================================================
         // LIKES RECEIVED
-        // -----------------------------------------------
+        // =================================================
 
-        const likesReceived = db.prepare(`
-            SELECT COALESCE(SUM(likes), 0) AS count
-            FROM discussions
-            WHERE user_id = ?
-        `).get(req.user.id).count;
+        const likesReceived =
+            db.prepare(`
+                SELECT
+                    COALESCE(
+                        SUM(likes),
+                        0
+                    ) AS count
+                FROM discussions
+                WHERE user_id = ?
+            `).get(
+                req.user.id
+            ).count;
 
 
-        // -----------------------------------------------
+        // =================================================
         // RESPONSE
-        // -----------------------------------------------
+        // =================================================
 
         res.json({
 
@@ -96,13 +107,20 @@ router.get("/me", (req, res) => {
 
             user: {
 
-                id: user.id,
+                id:
+                    user.id,
 
-                name: user.name,
+                name:
+                    user.name,
 
-                email: user.email,
+                email:
+                    user.email,
 
-                role: user.role,
+                role:
+                    user.role,
+
+                orbitId:
+                    user.orbit_id,
 
                 avatarUrl:
                     user.avatar_url,
@@ -180,10 +198,6 @@ router.put("/me", (req, res) => {
     }
 
 
-    // =================================================
-    // VALIDATE NAME LENGTH
-    // =================================================
-
     if (
         name.trim().length > 50
     ) {
@@ -201,7 +215,7 @@ router.put("/me", (req, res) => {
 
 
     // =================================================
-    // VALIDATE AVATAR URL
+    // VALIDATE AVATAR
     // =================================================
 
     let cleanAvatarUrl = null;
@@ -215,8 +229,6 @@ router.put("/me", (req, res) => {
         cleanAvatarUrl =
             avatarUrl.trim();
 
-
-        // Only allow http/https URLs
 
         if (
             !cleanAvatarUrl.startsWith(
@@ -242,10 +254,6 @@ router.put("/me", (req, res) => {
 
 
     try {
-
-        // =================================================
-        // CHECK USER
-        // =================================================
 
         const user = db.prepare(`
             SELECT id
@@ -302,11 +310,14 @@ router.put("/me", (req, res) => {
                     name,
                     email,
                     role,
+                    orbit_id,
                     avatar_url,
                     created_at
                 FROM users
                 WHERE id = ?
-            `).get(req.user.id);
+            `).get(
+                req.user.id
+            );
 
 
         // =================================================
@@ -333,6 +344,9 @@ router.put("/me", (req, res) => {
 
                 role:
                     updatedUser.role,
+
+                orbitId:
+                    updatedUser.orbit_id,
 
                 avatarUrl:
                     updatedUser.avatar_url,
@@ -365,139 +379,164 @@ router.put("/me", (req, res) => {
     }
 
 });
+
+
 // =====================================================
-// GET USER PROFILE BY ID
+// GET USER PROFILE BY ORBIT ID
 // =====================================================
 
-router.get("/:id", (req, res) => {
+router.get(
+    "/orbit/:orbitId",
+    (req, res) => {
 
-    const { id } = req.params;
-
-    try {
-
-        const user = db.prepare(`
-            SELECT
-                id,
-                name,
-                role,
-                avatar_url,
-                created_at
-            FROM users
-            WHERE id = ?
-        `).get(id);
+        const {
+            orbitId
+        } = req.params;
 
 
-        // -----------------------------------------------
-        // USER NOT FOUND
-        // -----------------------------------------------
+        try {
 
-        if (!user) {
+            const user =
+                db.prepare(`
+                    SELECT
+                        id,
+                        name,
+                        role,
+                        orbit_id,
+                        avatar_url,
+                        created_at
+                    FROM users
+                    WHERE orbit_id = ?
+                `).get(
+                    orbitId
+                );
 
-            return res.status(404).json({
+
+            if (!user) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message:
+                        "Orbit ID not found."
+
+                });
+
+            }
+
+
+            // =================================================
+            // DISCUSSIONS COUNT
+            // =================================================
+
+            const discussions =
+                db.prepare(`
+                    SELECT COUNT(*) AS count
+                    FROM discussions
+                    WHERE user_id = ?
+                `).get(
+                    user.id
+                ).count;
+
+
+            // =================================================
+            // COMMENTS COUNT
+            // =================================================
+
+            const comments =
+                db.prepare(`
+                    SELECT COUNT(*) AS count
+                    FROM comments
+                    WHERE user_id = ?
+                `).get(
+                    user.id
+                ).count;
+
+
+            // =================================================
+            // LIKES RECEIVED
+            // =================================================
+
+            const likesReceived =
+                db.prepare(`
+                    SELECT
+                        COALESCE(
+                            SUM(likes),
+                            0
+                        ) AS count
+                    FROM discussions
+                    WHERE user_id = ?
+                `).get(
+                    user.id
+                ).count;
+
+
+            // =================================================
+            // RESPONSE
+            // =================================================
+
+            res.json({
+
+                success: true,
+
+                user: {
+
+                    id:
+                        user.id,
+
+                    name:
+                        user.name,
+
+                    role:
+                        user.role,
+
+                    orbitId:
+                        user.orbit_id,
+
+                    avatarUrl:
+                        user.avatar_url,
+
+                    createdAt:
+                        user.created_at
+
+                },
+
+                stats: {
+
+                    discussions,
+
+                    comments,
+
+                    likesReceived
+
+                }
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "GET ORBIT PROFILE ERROR:",
+                error
+            );
+
+
+            res.status(500).json({
 
                 success: false,
 
                 message:
-                    "User not found."
+                    "Failed to find Orbit user."
 
             });
 
         }
 
-
-        // -----------------------------------------------
-        // DISCUSSION COUNT
-        // -----------------------------------------------
-
-        const discussions = db.prepare(`
-            SELECT COUNT(*) AS count
-            FROM discussions
-            WHERE user_id = ?
-        `).get(user.id).count;
-
-
-        // -----------------------------------------------
-        // COMMENT COUNT
-        // -----------------------------------------------
-
-        const comments = db.prepare(`
-            SELECT COUNT(*) AS count
-            FROM comments
-            WHERE user_id = ?
-        `).get(user.id).count;
-
-
-        // -----------------------------------------------
-        // LIKES RECEIVED
-        // -----------------------------------------------
-
-        const likesReceived = db.prepare(`
-            SELECT COALESCE(SUM(likes), 0) AS count
-            FROM discussions
-            WHERE user_id = ?
-        `).get(user.id).count;
-
-
-        // -----------------------------------------------
-        // RESPONSE
-        // -----------------------------------------------
-
-        res.json({
-
-            success: true,
-
-            user: {
-
-                id:
-                    user.id,
-
-                name:
-                    user.name,
-
-                role:
-                    user.role,
-
-                avatarUrl:
-                    user.avatar_url,
-
-                createdAt:
-                    user.created_at
-
-            },
-
-            stats: {
-
-                discussions,
-
-                comments,
-
-                likesReceived
-
-            }
-
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "GET USER PROFILE ERROR:",
-            error
-        );
-
-
-        res.status(500).json({
-
-            success: false,
-
-            message:
-                "Failed to load user profile."
-
-        });
-
     }
+);
 
-});
 
 // =====================================================
 // GET MY DISCUSSIONS
@@ -524,7 +563,9 @@ router.get(
                     WHERE user_id = ?
 
                     ORDER BY created_at DESC
-                `).all(req.user.id);
+                `).all(
+                    req.user.id
+                );
 
 
             res.json({
@@ -550,6 +591,305 @@ router.get(
 
                 message:
                     "Failed to load your discussions."
+
+            });
+
+        }
+
+    }
+);
+
+
+// =====================================================
+// GET DISCUSSIONS BY ORBIT ID
+// =====================================================
+
+router.get(
+    "/orbit/:orbitId/discussions",
+    (req, res) => {
+
+        const {
+            orbitId
+        } = req.params;
+
+
+        try {
+
+            const user =
+                db.prepare(`
+                    SELECT id
+                    FROM users
+                    WHERE orbit_id = ?
+                `).get(
+                    orbitId
+                );
+
+
+            if (!user) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message:
+                        "Orbit ID not found."
+
+                });
+
+            }
+
+
+            const discussions =
+                db.prepare(`
+                    SELECT
+                        id,
+                        type,
+                        title,
+                        description,
+                        likes,
+                        created_at
+
+                    FROM discussions
+
+                    WHERE user_id = ?
+
+                    ORDER BY created_at DESC
+                `).all(
+                    user.id
+                );
+
+
+            res.json({
+
+                success: true,
+
+                discussions
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "GET ORBIT DISCUSSIONS ERROR:",
+                error
+            );
+
+
+            res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Failed to load user discussions."
+
+            });
+
+        }
+
+    }
+);
+
+
+// =====================================================
+// GET DISCUSSIONS BY DATABASE ID
+// =====================================================
+
+router.get(
+    "/:id/discussions",
+    (req, res) => {
+
+        const {
+            id
+        } = req.params;
+
+
+        try {
+
+            const discussions =
+                db.prepare(`
+                    SELECT
+                        id,
+                        type,
+                        title,
+                        description,
+                        likes,
+                        created_at
+
+                    FROM discussions
+
+                    WHERE user_id = ?
+
+                    ORDER BY created_at DESC
+                `).all(
+                    id
+                );
+
+
+            res.json({
+
+                success: true,
+
+                discussions
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "GET USER DISCUSSIONS ERROR:",
+                error
+            );
+
+
+            res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Failed to load user discussions."
+
+            });
+
+        }
+
+    }
+);
+
+
+// =====================================================
+// GET USER PROFILE BY DATABASE ID
+// =====================================================
+
+router.get(
+    "/:id",
+    (req, res) => {
+
+        const {
+            id
+        } = req.params;
+
+
+        try {
+
+            const user =
+                db.prepare(`
+                    SELECT
+                        id,
+                        name,
+                        role,
+                        orbit_id,
+                        avatar_url,
+                        created_at
+                    FROM users
+                    WHERE id = ?
+                `).get(
+                    id
+                );
+
+
+            if (!user) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message:
+                        "User not found."
+
+                });
+
+            }
+
+
+            const discussions =
+                db.prepare(`
+                    SELECT COUNT(*) AS count
+                    FROM discussions
+                    WHERE user_id = ?
+                `).get(
+                    user.id
+                ).count;
+
+
+            const comments =
+                db.prepare(`
+                    SELECT COUNT(*) AS count
+                    FROM comments
+                    WHERE user_id = ?
+                `).get(
+                    user.id
+                ).count;
+
+
+            const likesReceived =
+                db.prepare(`
+                    SELECT
+                        COALESCE(
+                            SUM(likes),
+                            0
+                        ) AS count
+                    FROM discussions
+                    WHERE user_id = ?
+                `).get(
+                    user.id
+                ).count;
+
+
+            res.json({
+
+                success: true,
+
+                user: {
+
+                    id:
+                        user.id,
+
+                    name:
+                        user.name,
+
+                    role:
+                        user.role,
+
+                    orbitId:
+                        user.orbit_id,
+
+                    avatarUrl:
+                        user.avatar_url,
+
+                    createdAt:
+                        user.created_at
+
+                },
+
+                stats: {
+
+                    discussions,
+
+                    comments,
+
+                    likesReceived
+
+                }
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "GET USER PROFILE ERROR:",
+                error
+            );
+
+
+            res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Failed to load user profile."
 
             });
 

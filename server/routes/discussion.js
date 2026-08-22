@@ -1,10 +1,11 @@
 const express = require("express");
 
-const router = express.Router();
-
 const db = require("../database/database");
 
-const authMiddleware = require("../middleware/authMiddleware");
+const authMiddleware =
+    require("../middleware/authMiddleware");
+
+const router = express.Router();
 
 
 // =====================================================
@@ -15,6 +16,157 @@ router.use(authMiddleware);
 
 
 // =====================================================
+// HELPER — CREATE NOTIFICATION
+// =====================================================
+
+const createNotification = ({
+    userId,
+    senderId,
+    type,
+    referenceId,
+    message,
+    io
+}) => {
+
+    // -------------------------------------------------
+    // Don't notify yourself
+    // -------------------------------------------------
+
+    if (
+        !userId ||
+        userId === senderId
+    ) {
+
+        return;
+
+    }
+
+
+    // -------------------------------------------------
+    // SAVE NOTIFICATION
+    // -------------------------------------------------
+
+    const result = db.prepare(`
+        INSERT INTO notifications
+        (
+            user_id,
+            sender_id,
+            type,
+            reference_id,
+            message
+        )
+
+        VALUES (?, ?, ?, ?, ?)
+    `).run(
+
+        userId,
+        senderId,
+        type,
+        referenceId,
+        message
+
+    );
+
+
+    // -------------------------------------------------
+    // GET CREATED NOTIFICATION
+    // -------------------------------------------------
+
+    const notification =
+        db.prepare(`
+            SELECT
+
+                notifications.id,
+
+                notifications.type,
+
+                notifications.reference_id,
+
+                notifications.message,
+
+                notifications.is_read,
+
+                notifications.created_at,
+
+                users.id AS sender_id,
+
+                users.name AS sender_name,
+
+                users.avatar_url AS sender_avatar_url,
+
+                users.orbit_id AS sender_orbit_id
+
+            FROM notifications
+
+            LEFT JOIN users
+
+                ON notifications.sender_id =
+                   users.id
+
+            WHERE notifications.id = ?
+
+        `).get(
+            result.lastInsertRowid
+        );
+
+
+    // -------------------------------------------------
+    // SEND REAL-TIME NOTIFICATION
+    // -------------------------------------------------
+
+    if (io) {
+
+        io
+            .to(`user-${userId}`)
+            .emit(
+                "notification-created",
+                {
+
+                    id:
+                        notification.id,
+
+                    type:
+                        notification.type,
+
+                    referenceId:
+                        notification.reference_id,
+
+                    message:
+                        notification.message,
+
+                    isRead:
+                        Boolean(
+                            notification.is_read
+                        ),
+
+                    createdAt:
+                        notification.created_at,
+
+                    sender: {
+
+                        id:
+                            notification.sender_id,
+
+                        name:
+                            notification.sender_name,
+
+                        avatarUrl:
+                            notification.sender_avatar_url,
+
+                        orbitId:
+                            notification.sender_orbit_id
+
+                    }
+
+                }
+            );
+
+    }
+
+};
+
+
+// =====================================================
 // GET ALL DISCUSSIONS
 // =====================================================
 
@@ -22,81 +174,89 @@ router.get("/", (req, res) => {
 
     try {
 
-        const discussions = db.prepare(`
-            SELECT
-                discussions.id,
-                discussions.type,
-                discussions.title,
-                discussions.description,
-                discussions.likes,
-                discussions.created_at,
-                discussions.user_id,
-                users.name AS user
-            FROM discussions
-            LEFT JOIN users
-                ON discussions.user_id = users.id
-            ORDER BY discussions.created_at DESC
-        `).all();
+        const discussions =
+            db.prepare(`
 
+                SELECT
 
-        // ==========================================
-        // COMMENTS
-        // ==========================================
+                    discussions.id,
 
-        const commentStatement = db.prepare(`
-            SELECT
-                comments.id,
-                comments.comment AS text,
-                comments.user_id,
-                users.name AS user,
-                comments.created_at
-            FROM comments
-            LEFT JOIN users
-                ON comments.user_id = users.id
-            WHERE comments.discussion_id = ?
-            ORDER BY comments.created_at ASC
-        `);
+                    discussions.type,
 
+                    discussions.title,
 
-        // ==========================================
-        // CHECK WHETHER CURRENT USER LIKED
-        // ==========================================
+                    discussions.description,
 
-        const likeStatement = db.prepare(`
-            SELECT id
-            FROM discussion_likes
-            WHERE discussion_id = ?
-            AND user_id = ?
-        `);
+                    discussions.likes,
 
+                    discussions.created_at,
 
-        const result = discussions.map((discussion) => {
+                    users.id AS user_id,
 
-            const comments =
-                commentStatement.all(
-                    discussion.id
-                );
+                    users.name AS user_name,
 
+                    users.avatar_url,
 
-            const liked =
-                !!likeStatement.get(
-                    discussion.id,
-                    req.user.id
-                );
+                    users.orbit_id
 
+                FROM discussions
 
-            return {
-                ...discussion,
-                liked,
-                comments
-            };
+                LEFT JOIN users
 
-        });
+                    ON discussions.user_id =
+                       users.id
+
+                ORDER BY
+                    discussions.created_at DESC
+
+            `).all();
 
 
         res.json({
+
             success: true,
-            discussions: result
+
+            discussions:
+                discussions.map(
+                    (item) => ({
+
+                        id:
+                            item.id,
+
+                        type:
+                            item.type,
+
+                        title:
+                            item.title,
+
+                        description:
+                            item.description,
+
+                        likes:
+                            item.likes,
+
+                        createdAt:
+                            item.created_at,
+
+                        user: {
+
+                            id:
+                                item.user_id,
+
+                            name:
+                                item.user_name,
+
+                            avatarUrl:
+                                item.avatar_url,
+
+                            orbitId:
+                                item.orbit_id
+
+                        }
+
+                    })
+                )
+
         });
 
 
@@ -107,9 +267,14 @@ router.get("/", (req, res) => {
             error
         );
 
+
         res.status(500).json({
+
             success: false,
-            message: "Failed to fetch discussions."
+
+            message:
+                "Failed to load discussions."
+
         });
 
     }
@@ -130,11 +295,39 @@ router.post("/", (req, res) => {
     } = req.body;
 
 
-    if (!title || !description) {
+    // =================================================
+    // VALIDATION
+    // =================================================
+
+    if (
+        !title ||
+        !title.trim()
+    ) {
 
         return res.status(400).json({
+
             success: false,
-            message: "Title and description are required."
+
+            message:
+                "Discussion title cannot be empty."
+
+        });
+
+    }
+
+
+    if (
+        !description ||
+        !description.trim()
+    ) {
+
+        return res.status(400).json({
+
+            success: false,
+
+            message:
+                "Discussion description cannot be empty."
+
         });
 
     }
@@ -142,30 +335,114 @@ router.post("/", (req, res) => {
 
     try {
 
-        const statement = db.prepare(`
-            INSERT INTO discussions
-            (
-                user_id,
-                type,
-                title,
-                description
-            )
-            VALUES (?, ?, ?, ?)
-        `);
+        const result =
+            db.prepare(`
+
+                INSERT INTO discussions
+                (
+                    user_id,
+                    type,
+                    title,
+                    description
+                )
+
+                VALUES (?, ?, ?, ?)
+
+            `).run(
+
+                req.user.id,
+
+                type ||
+                    "DISCUSSION",
+
+                title.trim(),
+
+                description.trim()
+
+            );
 
 
-        const result = statement.run(
-            req.user.id,
-            type || "DISCUSSION",
-            title.trim(),
-            description.trim()
-        );
+        const discussion =
+            db.prepare(`
+
+                SELECT
+
+                    discussions.id,
+
+                    discussions.type,
+
+                    discussions.title,
+
+                    discussions.description,
+
+                    discussions.likes,
+
+                    discussions.created_at,
+
+                    users.id AS user_id,
+
+                    users.name AS user_name,
+
+                    users.avatar_url,
+
+                    users.orbit_id
+
+                FROM discussions
+
+                LEFT JOIN users
+
+                    ON discussions.user_id =
+                       users.id
+
+                WHERE discussions.id = ?
+
+            `).get(
+                result.lastInsertRowid
+            );
 
 
-        res.json({
+        res.status(201).json({
+
             success: true,
-            message: "Discussion created successfully!",
-            discussionId: result.lastInsertRowid
+
+            discussion: {
+
+                id:
+                    discussion.id,
+
+                type:
+                    discussion.type,
+
+                title:
+                    discussion.title,
+
+                description:
+                    discussion.description,
+
+                likes:
+                    discussion.likes,
+
+                createdAt:
+                    discussion.created_at,
+
+                user: {
+
+                    id:
+                        discussion.user_id,
+
+                    name:
+                        discussion.user_name,
+
+                    avatarUrl:
+                        discussion.avatar_url,
+
+                    orbitId:
+                        discussion.orbit_id
+
+                }
+
+            }
+
         });
 
 
@@ -176,9 +453,14 @@ router.post("/", (req, res) => {
             error
         );
 
+
         res.status(500).json({
+
             success: false,
-            message: "Failed to create discussion."
+
+            message:
+                "Failed to create discussion."
+
         });
 
     }
@@ -187,538 +469,493 @@ router.post("/", (req, res) => {
 
 
 // =====================================================
-// UPDATE DISCUSSION
+// LIKE DISCUSSION
 // =====================================================
 
-router.put("/:id", (req, res) => {
+router.post(
+    "/:id/like",
+    (req, res) => {
 
-    const { id } = req.params;
-
-    const {
-        title,
-        description
-    } = req.body;
-
-
-    if (!title || !description) {
-
-        return res.status(400).json({
-            success: false,
-            message: "Title and description are required."
-        });
-
-    }
-
-
-    try {
-
-        // ==========================================
-        // FIND DISCUSSION
-        // ==========================================
-
-        const discussion = db.prepare(`
-            SELECT
-                id,
-                user_id
-            FROM discussions
-            WHERE id = ?
-        `).get(id);
-
-
-        if (!discussion) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Discussion not found."
-            });
-
-        }
-
-
-        // ==========================================
-        // ONLY OWNER OR ADMIN CAN EDIT
-        // ==========================================
-
-        const isOwner =
-            discussion.user_id === req.user.id;
-
-        const isAdmin =
-            req.user.role === "ADMIN";
-
-
-        if (!isOwner && !isAdmin) {
-
-            return res.status(403).json({
-                success: false,
-                message: "You cannot edit this discussion."
-            });
-
-        }
-
-
-        // ==========================================
-        // UPDATE
-        // ==========================================
-
-        db.prepare(`
-            UPDATE discussions
-            SET
-                title = ?,
-                description = ?
-            WHERE id = ?
-        `).run(
-            title.trim(),
-            description.trim(),
+        const {
             id
-        );
+        } = req.params;
 
 
-        res.json({
-            success: true,
-            message: "Discussion updated successfully!"
-        });
+        try {
 
+            // =========================================
+            // FIND DISCUSSION
+            // =========================================
 
-    } catch (error) {
+            const discussion =
+                db.prepare(`
 
-        console.error(
-            "UPDATE DISCUSSION ERROR:",
-            error
-        );
+                    SELECT
 
-        res.status(500).json({
-            success: false,
-            message: "Failed to update discussion."
-        });
+                        id,
+                        user_id,
+                        title,
+                        likes
 
-    }
+                    FROM discussions
 
-});
+                    WHERE id = ?
 
+                `).get(id);
 
-// =====================================================
-// DELETE DISCUSSION
-// =====================================================
 
-router.delete("/:id", (req, res) => {
+            if (!discussion) {
 
-    const { id } = req.params;
+                return res.status(404).json({
 
+                    success: false,
 
-    try {
+                    message:
+                        "Discussion not found."
 
-        // ==========================================
-        // FIND DISCUSSION
-        // ==========================================
+                });
 
-        const discussion = db.prepare(`
-            SELECT
-                id,
-                user_id
-            FROM discussions
-            WHERE id = ?
-        `).get(id);
+            }
 
 
-        if (!discussion) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Discussion not found."
-            });
-
-        }
-
-
-        // ==========================================
-        // ONLY OWNER OR ADMIN CAN DELETE
-        // ==========================================
-
-        const isOwner =
-            discussion.user_id === req.user.id;
-
-        const isAdmin =
-            req.user.role === "ADMIN";
-
-
-        if (!isOwner && !isAdmin) {
-
-            return res.status(403).json({
-                success: false,
-                message: "You cannot delete this discussion."
-            });
-
-        }
-
-
-        // ==========================================
-        // DELETE COMMENTS
-        // ==========================================
-
-        db.prepare(`
-            DELETE FROM comments
-            WHERE discussion_id = ?
-        `).run(id);
-
-
-        // ==========================================
-        // DELETE LIKES
-        // ==========================================
-
-        db.prepare(`
-            DELETE FROM discussion_likes
-            WHERE discussion_id = ?
-        `).run(id);
-
-
-        // ==========================================
-        // DELETE DISCUSSION
-        // ==========================================
-
-        db.prepare(`
-            DELETE FROM discussions
-            WHERE id = ?
-        `).run(id);
-
-
-        res.json({
-            success: true,
-            message: "Discussion deleted successfully!"
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "DELETE DISCUSSION ERROR:",
-            error
-        );
-
-        res.status(500).json({
-            success: false,
-            message: "Failed to delete discussion."
-        });
-
-    }
-
-});
-
-
-// =====================================================
-// LIKE / UNLIKE DISCUSSION
-// =====================================================
-
-router.post("/:id/like", (req, res) => {
-
-    const { id } = req.params;
-
-    const userId = req.user.id;
-
-
-    try {
-
-        // ==========================================
-        // CHECK DISCUSSION
-        // ==========================================
-
-        const discussion = db.prepare(`
-            SELECT id
-            FROM discussions
-            WHERE id = ?
-        `).get(id);
-
-
-        if (!discussion) {
-
-            return res.status(404).json({
-                success: false,
-                message: "Discussion not found."
-            });
-
-        }
-
-
-        // ==========================================
-        // CHECK EXISTING LIKE
-        // ==========================================
-
-        const existingLike = db.prepare(`
-            SELECT id
-            FROM discussion_likes
-            WHERE discussion_id = ?
-            AND user_id = ?
-        `).get(id, userId);
-
-
-        // ==========================================
-        // UNLIKE
-        // ==========================================
-
-        if (existingLike) {
+            // =========================================
+            // INCREMENT LIKE
+            // =========================================
 
             db.prepare(`
-                DELETE FROM discussion_likes
-                WHERE discussion_id = ?
-                AND user_id = ?
-            `).run(id, userId);
 
-        }
+                UPDATE discussions
 
-        // ==========================================
-        // LIKE
-        // ==========================================
+                SET likes = likes + 1
 
-        else {
+                WHERE id = ?
 
-            db.prepare(`
-                INSERT INTO discussion_likes
-                (
-                    discussion_id,
-                    user_id
-                )
-                VALUES (?, ?)
-            `).run(
-                id,
-                userId
+            `).run(id);
+
+
+            // =========================================
+            // CREATE NOTIFICATION
+            // =========================================
+
+            createNotification({
+
+                userId:
+                    discussion.user_id,
+
+                senderId:
+                    req.user.id,
+
+                type:
+                    "LIKE",
+
+                referenceId:
+                    discussion.id,
+
+                message:
+                    `${req.user.name} liked your discussion.`,
+
+                io:
+                    req.io
+
+            });
+
+
+            // =========================================
+            // GET UPDATED COUNT
+            // =========================================
+
+            const updatedDiscussion =
+                db.prepare(`
+
+                    SELECT likes
+
+                    FROM discussions
+
+                    WHERE id = ?
+
+                `).get(id);
+
+
+            res.json({
+
+                success: true,
+
+                likes:
+                    updatedDiscussion.likes
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "LIKE DISCUSSION ERROR:",
+                error
             );
 
+
+            res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Failed to like discussion."
+
+            });
+
         }
 
-
-        // ==========================================
-        // RECALCULATE LIKE COUNT
-        // ==========================================
-
-        const likeCount = db.prepare(`
-            SELECT COUNT(*) AS count
-            FROM discussion_likes
-            WHERE discussion_id = ?
-        `).get(id).count;
+    }
+);
 
 
-        // Keep discussions.likes synchronized
-        db.prepare(`
-            UPDATE discussions
-            SET likes = ?
-            WHERE id = ?
-        `).run(
-            likeCount,
+// =====================================================
+// GET COMMENTS
+// =====================================================
+
+router.get(
+    "/:id/comments",
+    (req, res) => {
+
+        const {
             id
-        );
+        } = req.params;
 
 
-        res.json({
-            success: true,
-            liked: !existingLike,
-            likes: likeCount
-        });
+        try {
+
+            const comments =
+                db.prepare(`
+
+                    SELECT
+
+                        comments.id,
+
+                        comments.discussion_id,
+
+                        comments.comment,
+
+                        comments.created_at,
+
+                        users.id AS user_id,
+
+                        users.name AS user_name,
+
+                        users.avatar_url,
+
+                        users.orbit_id
+
+                    FROM comments
+
+                    LEFT JOIN users
+
+                        ON comments.user_id =
+                           users.id
+
+                    WHERE comments.discussion_id = ?
+
+                    ORDER BY
+                        comments.created_at ASC
+
+                `).all(id);
 
 
-    } catch (error) {
+            res.json({
 
-        console.error(
-            "LIKE ERROR:",
-            error
-        );
+                success: true,
 
-        res.status(500).json({
-            success: false,
-            message: "Failed to update like."
-        });
+                comments:
+                    comments.map(
+                        (item) => ({
+
+                            id:
+                                item.id,
+
+                            discussionId:
+                                item.discussion_id,
+
+                            comment:
+                                item.comment,
+
+                            createdAt:
+                                item.created_at,
+
+                            user: {
+
+                                id:
+                                    item.user_id,
+
+                                name:
+                                    item.user_name,
+
+                                avatarUrl:
+                                    item.avatar_url,
+
+                                orbitId:
+                                    item.orbit_id
+
+                            }
+
+                        })
+                    )
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "GET COMMENTS ERROR:",
+                error
+            );
+
+
+            res.status(500).json({
+
+                success: false,
+
+                message:
+                    "Failed to load comments."
+
+            });
+
+        }
 
     }
-
-});
+);
 
 
 // =====================================================
 // ADD COMMENT
 // =====================================================
 
-router.post("/:id/comments", (req, res) => {
+router.post(
+    "/:id/comments",
+    (req, res) => {
 
-    const { id } = req.params;
+        const {
+            id
+        } = req.params;
 
-    const {
-        comment
-    } = req.body;
-
-
-    if (!comment || !comment.trim()) {
-
-        return res.status(400).json({
-            success: false,
-            message: "Comment cannot be empty."
-        });
-
-    }
+        const {
+            comment
+        } = req.body;
 
 
-    try {
+        // =============================================
+        // VALIDATION
+        // =============================================
 
-        // ==========================================
-        // CHECK DISCUSSION
-        // ==========================================
+        if (
+            !comment ||
+            !comment.trim()
+        ) {
 
-        const discussion = db.prepare(`
-            SELECT id
-            FROM discussions
-            WHERE id = ?
-        `).get(id);
+            return res.status(400).json({
 
-
-        if (!discussion) {
-
-            return res.status(404).json({
                 success: false,
-                message: "Discussion not found."
+
+                message:
+                    "Comment cannot be empty."
+
             });
 
         }
 
 
-        // ==========================================
-        // CREATE COMMENT
-        // ==========================================
+        try {
 
-        const statement = db.prepare(`
-            INSERT INTO comments
-            (
-                discussion_id,
-                user_id,
-                comment
-            )
-            VALUES (?, ?, ?)
-        `);
+            // =========================================
+            // FIND DISCUSSION
+            // =========================================
 
+            const discussion =
+                db.prepare(`
 
-        const result = statement.run(
-            id,
-            req.user.id,
-            comment.trim()
-        );
+                    SELECT
 
+                        id,
+                        user_id,
+                        title
 
-        // ==========================================
-        // GET CREATED COMMENT
-        // ==========================================
+                    FROM discussions
 
-        const newComment = db.prepare(`
-            SELECT
-                comments.id,
-                comments.comment AS text,
-                comments.user_id,
-                users.name AS user,
-                comments.created_at
-            FROM comments
-            LEFT JOIN users
-                ON comments.user_id = users.id
-            WHERE comments.id = ?
-        `).get(result.lastInsertRowid);
+                    WHERE id = ?
+
+                `).get(id);
 
 
-        res.json({
-            success: true,
-            message: "Comment added successfully!",
-            comment: newComment
-        });
+            if (!discussion) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message:
+                        "Discussion not found."
+
+                });
+
+            }
 
 
-    } catch (error) {
+            // =========================================
+            // INSERT COMMENT
+            // =========================================
 
-        console.error(
-            "ADD COMMENT ERROR:",
-            error
-        );
+            const result =
+                db.prepare(`
 
-        res.status(500).json({
-            success: false,
-            message: "Failed to add comment."
-        });
+                    INSERT INTO comments
+                    (
+                        discussion_id,
+                        user_id,
+                        comment
+                    )
 
-    }
+                    VALUES (?, ?, ?)
 
-});
+                `).run(
 
+                    discussion.id,
 
-// =====================================================
-// DELETE COMMENT
-// =====================================================
+                    req.user.id,
 
-router.delete("/comments/:commentId", (req, res) => {
+                    comment.trim()
 
-    const { commentId } = req.params;
-
-
-    try {
-
-        const comment = db.prepare(`
-            SELECT
-                id,
-                user_id
-            FROM comments
-            WHERE id = ?
-        `).get(commentId);
+                );
 
 
-        if (!comment) {
+            // =========================================
+            // GET CREATED COMMENT
+            // =========================================
 
-            return res.status(404).json({
+            const createdComment =
+                db.prepare(`
+
+                    SELECT
+
+                        comments.id,
+
+                        comments.discussion_id,
+
+                        comments.comment,
+
+                        comments.created_at,
+
+                        users.id AS user_id,
+
+                        users.name AS user_name,
+
+                        users.avatar_url,
+
+                        users.orbit_id
+
+                    FROM comments
+
+                    LEFT JOIN users
+
+                        ON comments.user_id =
+                           users.id
+
+                    WHERE comments.id = ?
+
+                `).get(
+                    result.lastInsertRowid
+                );
+
+
+            // =========================================
+            // CREATE NOTIFICATION
+            // =========================================
+
+            createNotification({
+
+                userId:
+                    discussion.user_id,
+
+                senderId:
+                    req.user.id,
+
+                type:
+                    "COMMENT",
+
+                referenceId:
+                    discussion.id,
+
+                message:
+                    `${req.user.name} commented on your discussion.`,
+
+                io:
+                    req.io
+
+            });
+
+
+            // =========================================
+            // RESPONSE
+            // =========================================
+
+            res.status(201).json({
+
+                success: true,
+
+                comment: {
+
+                    id:
+                        createdComment.id,
+
+                    discussionId:
+                        createdComment.discussion_id,
+
+                    comment:
+                        createdComment.comment,
+
+                    createdAt:
+                        createdComment.created_at,
+
+                    user: {
+
+                        id:
+                            createdComment.user_id,
+
+                        name:
+                            createdComment.user_name,
+
+                        avatarUrl:
+                            createdComment.avatar_url,
+
+                        orbitId:
+                            createdComment.orbit_id
+
+                    }
+
+                }
+
+            });
+
+
+        } catch (error) {
+
+            console.error(
+                "ADD COMMENT ERROR:",
+                error
+            );
+
+
+            res.status(500).json({
+
                 success: false,
-                message: "Comment not found."
+
+                message:
+                    "Failed to add comment."
+
             });
 
         }
 
-
-        // ==========================================
-        // OWNER OR ADMIN
-        // ==========================================
-
-        const isOwner =
-            comment.user_id === req.user.id;
-
-        const isAdmin =
-            req.user.role === "ADMIN";
-
-
-        if (!isOwner && !isAdmin) {
-
-            return res.status(403).json({
-                success: false,
-                message: "You cannot delete this comment."
-            });
-
-        }
-
-
-        db.prepare(`
-            DELETE FROM comments
-            WHERE id = ?
-        `).run(commentId);
-
-
-        res.json({
-            success: true,
-            message: "Comment deleted successfully!"
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "DELETE COMMENT ERROR:",
-            error
-        );
-
-        res.status(500).json({
-            success: false,
-            message: "Failed to delete comment."
-        });
-
     }
-
-});
+);
 
 
 module.exports = router;

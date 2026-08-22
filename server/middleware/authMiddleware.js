@@ -6,13 +6,20 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 function authMiddleware(req, res, next) {
 
+    console.log("=================================");
+    console.log("AUTH CHECK");
+    console.log("Authorization:", req.headers.authorization);
+    console.log("=================================");
+
     const authHeader = req.headers.authorization;
 
     if (!authHeader) {
+
         return res.status(401).json({
             success: false,
             message: "Authentication required."
         });
+
     }
 
     const parts = authHeader.split(" ");
@@ -21,19 +28,27 @@ function authMiddleware(req, res, next) {
         parts.length !== 2 ||
         parts[0] !== "Bearer"
     ) {
+
         return res.status(401).json({
             success: false,
             message: "Invalid authorization format."
         });
+
     }
 
     const token = parts[1];
 
     try {
 
-        const decoded = jwt.verify(
-            token,
-            JWT_SECRET
+        const decoded =
+            jwt.verify(
+                token,
+                JWT_SECRET
+            );
+
+        console.log(
+            "JWT USER:",
+            decoded
         );
 
         req.user = decoded;

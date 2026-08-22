@@ -1,4 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate
+} from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 
@@ -18,13 +23,22 @@ import Chat from "./pages/Chat";
 
 function ProtectedRoute({ children }) {
 
-  const token = localStorage.getItem("orbitToken");
+  const token =
+    localStorage.getItem("orbitToken");
 
   if (!token) {
-    return <Navigate to="/login" replace />;
+
+    return (
+      <Navigate
+        to="/login"
+        replace
+      />
+    );
+
   }
 
   return children;
+
 }
 
 
@@ -35,39 +49,64 @@ function ProtectedRoute({ children }) {
 function App() {
 
   return (
+
     <BrowserRouter>
 
-      {/* One global Navbar only */}
+      {/* =================================================
+          GLOBAL NAVBAR
+      ================================================= */}
+
       <Navbar />
+
 
       <Routes>
 
-        {/* ==========================================
-            PUBLIC
-        ========================================== */}
+
+        {/* =================================================
+            PUBLIC ROUTES
+        ================================================= */}
 
         <Route
           path="/"
-          element={<Home />}
+          element={
+            <Home />
+          }
         />
+
 
         <Route
           path="/login"
-          element={<Login />}
+          element={
+            <Login />
+          }
         />
+
 
         <Route
           path="/register"
-          element={<Register />}
+          element={
+            <Register />
+          }
         />
-      <Route
-  path="/chat"
-  element={<Chat />}
-/>
 
-        {/* ==========================================
-            PROTECTED
-        ========================================== */}
+
+        {/* =================================================
+            CHAT
+        ================================================= */}
+
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <Chat />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* =================================================
+            MOVIES
+        ================================================= */}
 
         <Route
           path="/movies"
@@ -78,6 +117,11 @@ function App() {
           }
         />
 
+
+        {/* =================================================
+            EXPLORE
+        ================================================= */}
+
         <Route
           path="/explore"
           element={
@@ -86,18 +130,43 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-  path="/profile"
-  element={
-    <ProtectedRoute>
-      <Profile />
-    </ProtectedRoute>
-  }
-/>
 
-        {/* ==========================================
+
+        {/* =================================================
+            MY PROFILE
+            Example:
+            /profile
+        ================================================= */}
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* =================================================
+            PUBLIC ORBIT ID PROFILE
+            Example:
+            /profile/koushikM4821
+        ================================================= */}
+
+        <Route
+          path="/profile/:orbitId"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+
+
+        {/* =================================================
             ADMIN
-        ========================================== */}
+        ================================================= */}
 
         <Route
           path="/admin"
@@ -108,10 +177,29 @@ function App() {
           }
         />
 
+
+        {/* =================================================
+            FALLBACK
+        ================================================= */}
+
+        <Route
+          path="*"
+          element={
+            <Navigate
+              to="/"
+              replace
+            />
+          }
+        />
+
+
       </Routes>
 
     </BrowserRouter>
+
   );
+
 }
+
 
 export default App;

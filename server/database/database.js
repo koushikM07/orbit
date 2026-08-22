@@ -22,6 +22,145 @@ db.exec(`
 
 
 // =====================================================
+// ORBIT ID MIGRATION
+// =====================================================
+
+try {
+
+    db.exec(`
+        ALTER TABLE users
+        ADD COLUMN orbit_id TEXT
+    `);
+
+    console.log("orbit_id column added.");
+
+} catch (error) {
+
+    if (
+        !error.message.includes(
+            "duplicate column name"
+        )
+    ) {
+
+        console.error(
+            "Orbit ID migration error:",
+            error
+        );
+
+    }
+
+}
+
+
+// =====================================================
+// AVATAR MIGRATION
+// =====================================================
+
+try {
+
+    db.exec(`
+        ALTER TABLE users
+        ADD COLUMN avatar_url TEXT
+    `);
+
+    console.log("avatar_url column added.");
+
+} catch (error) {
+
+    if (
+        !error.message.includes(
+            "duplicate column name"
+        )
+    ) {
+
+        console.error(
+            "Avatar migration error:",
+            error
+        );
+
+    }
+
+}
+
+
+// =====================================================
+// GENERATE ORBIT IDS FOR EXISTING USERS
+// =====================================================
+
+const usersWithoutOrbitId = db.prepare(`
+    SELECT
+        id,
+        name
+    FROM users
+    WHERE orbit_id IS NULL
+       OR orbit_id = ''
+`).all();
+
+
+const generateOrbitId = (name, id) => {
+
+    let cleanName =
+        name
+            .replace(
+                /[^a-zA-Z0-9]/g,
+                ""
+            )
+            .toLowerCase();
+
+
+    if (!cleanName) {
+
+        cleanName = "orbit";
+
+    }
+
+
+    cleanName =
+        cleanName.substring(
+            0,
+            10
+        );
+
+
+    return `${cleanName}M${String(id).padStart(2, "0")}`;
+
+};
+
+
+const updateOrbitId =
+    db.prepare(`
+        UPDATE users
+        SET orbit_id = ?
+        WHERE id = ?
+    `);
+
+
+for (
+    const user
+    of usersWithoutOrbitId
+) {
+
+    const orbitId =
+        generateOrbitId(
+            user.name,
+            user.id
+        );
+
+
+    updateOrbitId.run(
+        orbitId,
+        user.id
+    );
+
+
+    console.log(
+        `Generated Orbit ID: ${orbitId}`
+    );
+
+}
+
+
+// =====================================================
 // DISCUSSIONS
 // =====================================================
 
@@ -61,6 +200,7 @@ db.exec(`
     )
 `);
 
+
 // =====================================================
 // CHAT MESSAGES
 // =====================================================
@@ -79,74 +219,72 @@ db.exec(`
 
 console.log("Messages table ready!");
 
+
 // =====================================================
-// AVATAR MIGRATION
+// NOTIFICATIONS
 // =====================================================
+//
+// type examples:
+//
+// LIKE
+// COMMENT
+// REPLY
+// CHAT_REQUEST
+// CHAT_ACCEPTED
+//
+// user_id      = person receiving notification
+// sender_id    = person who caused notification
+// reference_id = related discussion/comment/request
+//
 
-// Add avatar_url to existing databases.
-// If the column already exists, nothing happens.
+db.exec(`
+    CREATE TABLE IF NOT EXISTS notifications (
 
-try {
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    db.exec(`
-        ALTER TABLE users
-        ADD COLUMN avatar_url TEXT
-    `);
+        user_id INTEGER NOT NULL,
 
-    console.log("avatar_url column added.");
+        sender_id INTEGER,
 
-} catch (error) {
+        type TEXT NOT NULL,
 
-    // SQLITE_ERROR means the column probably already exists.
-    // We don't need to do anything in that case.
+        reference_id INTEGER,
 
-    if (
-        !error.message.includes(
-            "duplicate column name"
-        )
-    ) {
-        console.error(
-            "Avatar migration error:",
-            error
-        );
-    }
+        message TEXT NOT NULL,
 
-}
+        is_read INTEGER NOT NULL DEFAULT 0,
+
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+        FOREIGN KEY (user_id)
+        REFERENCES users(id),
+
+        FOREIGN KEY (sender_id)
+        REFERENCES users(id)
+
+    )
+`);
+
+console.log("Notifications table ready!");
+
+
 // =====================================================
-// CHAT REPLY MIGRATION
+// STATUS
 // =====================================================
-
-// Add reply_to_id to existing messages table.
-// This stores the ID of the message being replied to.
-
-try {
-
-    db.exec(`
-        ALTER TABLE messages
-        ADD COLUMN reply_to_id INTEGER
-    `);
-
-    console.log("reply_to_id column added.");
-
-} catch (error) {
-
-    if (
-        !error.message.includes(
-            "duplicate column name"
-        )
-    ) {
-
-        console.error(
-            "Reply migration error:",
-            error
-        );
-
-    }
-
-}
 
 console.log("Users table ready!");
+
 console.log("Discussions table ready!");
+
 console.log("Comments table ready!");
+
+console.log("Orbit ID system ready!");
+
+console.log("Notification system ready!");
+
+
+// =====================================================
+// EXPORT
+// =====================================================
 
 module.exports = db;

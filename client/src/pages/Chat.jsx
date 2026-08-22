@@ -29,6 +29,7 @@ function Chat() {
 
   const navigate = useNavigate();
 
+
   // ===================================================
   // STATE
   // ===================================================
@@ -41,17 +42,20 @@ function Chat() {
 
   const [error, setError] = useState("");
 
+
   // IMPORTANT:
   // Track MESSAGE ID, not USER ID.
   //
-  // Otherwise if the same user has 10 messages,
-  // all 10 profile cards would open.
+  // This makes sure only the profile card belonging
+  // to the hovered message is displayed.
 
   const [hoveredMessageId, setHoveredMessageId] =
     useState(null);
 
 
-  // Editing
+  // ===================================================
+  // EDITING
+  // ===================================================
 
   const [editingId, setEditingId] =
     useState(null);
@@ -60,7 +64,9 @@ function Chat() {
     useState("");
 
 
-  // Reply
+  // ===================================================
+  // REPLY
+  // ===================================================
 
   const [replyingTo, setReplyingTo] =
     useState(null);
@@ -157,7 +163,9 @@ function Chat() {
         data.messages || []
       );
 
+
       scrollToBottom();
+
 
     } catch (err) {
 
@@ -166,10 +174,12 @@ function Chat() {
         err
       );
 
+
       setError(
         err.message ||
         "Failed to load chat."
       );
+
 
     } finally {
 
@@ -198,7 +208,9 @@ function Chat() {
     loadMessages();
 
 
-    // Join chat room
+    // =================================================
+    // JOIN CHAT ROOM
+    // =================================================
 
     socket.emit(
       "join-chat"
@@ -292,15 +304,18 @@ function Chat() {
       handleNewMessage
     );
 
+
     socket.on(
       "new-message",
       handleNewMessage
     );
 
+
     socket.on(
       "message-updated",
       handleMessageUpdated
     );
+
 
     socket.on(
       "message-deleted",
@@ -319,15 +334,18 @@ function Chat() {
         handleNewMessage
       );
 
+
       socket.off(
         "new-message",
         handleNewMessage
       );
 
+
       socket.off(
         "message-updated",
         handleMessageUpdated
       );
+
 
       socket.off(
         "message-deleted",
@@ -365,19 +383,23 @@ function Chat() {
         await fetch(
           "http://localhost:5000/api/chat",
           {
+
             method: "POST",
 
             headers: {
+
               "Content-Type":
                 "application/json",
 
               Authorization:
                 `Bearer ${token}`,
+
             },
 
-            body: JSON.stringify({
-              message: text,
-            }),
+            body:
+              JSON.stringify({
+                message: text,
+              }),
 
           }
         );
@@ -399,7 +421,9 @@ function Chat() {
       }
 
 
-      // Add immediately
+      // =================================================
+      // ADD IMMEDIATELY
+      // =================================================
 
       if (data.message) {
 
@@ -450,6 +474,7 @@ function Chat() {
         "SEND MESSAGE ERROR:",
         err
       );
+
 
       alert(
         "Server is not responding."
@@ -511,19 +536,23 @@ function Chat() {
         await fetch(
           `http://localhost:5000/api/chat/${id}`,
           {
+
             method: "PUT",
 
             headers: {
+
               "Content-Type":
                 "application/json",
 
               Authorization:
                 `Bearer ${token}`,
+
             },
 
-            body: JSON.stringify({
-              message: text,
-            }),
+            body:
+              JSON.stringify({
+                message: text,
+              }),
 
           }
         );
@@ -553,7 +582,9 @@ function Chat() {
             (item) =>
 
               item.id === id
+
                 ? data.message
+
                 : item
 
           )
@@ -567,12 +598,14 @@ function Chat() {
 
       setEditingText("");
 
+
     } catch (err) {
 
       console.error(
         "EDIT MESSAGE ERROR:",
         err
       );
+
 
       alert(
         "Failed to edit message."
@@ -608,12 +641,16 @@ function Chat() {
         await fetch(
           `http://localhost:5000/api/chat/${id}`,
           {
+
             method: "DELETE",
 
             headers: {
+
               Authorization:
                 `Bearer ${token}`,
+
             },
+
           }
         );
 
@@ -643,12 +680,14 @@ function Chat() {
 
       );
 
+
     } catch (err) {
 
       console.error(
         "DELETE MESSAGE ERROR:",
         err
       );
+
 
       alert(
         "Failed to delete message."
@@ -685,12 +724,30 @@ function Chat() {
   // VIEW PROFILE
   // ===================================================
 
-  const handleViewProfile = (userId) => {
+  const handleViewProfile = (orbitId) => {
 
     setHoveredMessageId(null);
 
+
+    // Orbit ID is required for public profiles.
+
+    if (!orbitId) {
+
+      console.error(
+        "Orbit ID is missing for this user."
+      );
+
+      alert(
+        "This user's Orbit ID is not available yet."
+      );
+
+      return;
+
+    }
+
+
     navigate(
-      `/profile/${userId}`
+      `/profile/${encodeURIComponent(orbitId)}`
     );
 
   };
@@ -749,6 +806,7 @@ function Chat() {
       return user.avatarUrl;
 
     }
+
 
     return null;
 
@@ -814,6 +872,7 @@ function Chat() {
       <div className="max-w-7xl mx-auto px-6 pt-8">
 
         <div className="flex items-center gap-4">
+
 
           <div className="w-14 h-14 rounded-2xl bg-orange-500 flex items-center justify-center">
 
@@ -894,6 +953,7 @@ function Chat() {
 
             {messages.map((item) => {
 
+
               const isOwnMessage =
                 currentUser &&
                 Number(item.user?.id) ===
@@ -940,6 +1000,7 @@ function Chat() {
                     }
                   >
 
+
                     {/* AVATAR */}
 
                     {avatar ? (
@@ -977,11 +1038,13 @@ function Chat() {
                             ? "right-14"
                             : "left-14"
                         }`}
+
                         onMouseEnter={() =>
                           setHoveredMessageId(
                             item.id
                           )
                         }
+
                         onMouseLeave={() =>
                           setHoveredMessageId(
                             null
@@ -989,12 +1052,13 @@ function Chat() {
                         }
                       >
 
-                        {/* =============================================
+
+                        {/* =================================================
                             INVISIBLE HOVER BRIDGE
 
-                            Prevents the popup from disappearing while
-                            moving the mouse from avatar to card.
-                        ============================================= */}
+                            Keeps popup open while moving the
+                            mouse from avatar to profile card.
+                        ================================================= */}
 
                         <div
                           className={`absolute top-0 h-full w-6 ${
@@ -1009,9 +1073,11 @@ function Chat() {
 
                         <div className="w-72 bg-slate-900 border border-slate-700 rounded-2xl p-5 shadow-2xl">
 
+
                           {/* USER */}
 
                           <div className="flex items-center gap-4">
+
 
                             {avatar ? (
 
@@ -1047,9 +1113,15 @@ function Chat() {
                               </h3>
 
 
-                              <p className="text-slate-400 text-sm">
+                              {/* =================================================
+                                  ORBIT ID
+                              ================================================= */}
 
-                                Orbit Member
+                              <p className="text-orange-400 text-sm">
+
+                                {item.user?.orbitId
+                                  ? `@${item.user.orbitId}`
+                                  : "Orbit Member"}
 
                               </p>
 
@@ -1062,17 +1134,20 @@ function Chat() {
 
                           <button
                             type="button"
+
                             onClick={() =>
                               handleViewProfile(
-                                item.user.id
+                                item.user?.orbitId
                               )
                             }
+
                             className="w-full mt-5 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold transition"
                           >
 
                             View Profile
 
                           </button>
+
 
                         </div>
 
@@ -1119,29 +1194,38 @@ function Chat() {
 
                       <div className="w-full min-w-[300px]">
 
+
                         <textarea
                           value={
                             editingText
                           }
+
                           onChange={(e) =>
                             setEditingText(
                               e.target.value
                             )
                           }
+
                           maxLength={500}
+
                           rows={3}
+
                           autoFocus
+
                           className="w-full bg-slate-800 border border-orange-500 rounded-2xl px-4 py-3 text-white outline-none resize-none"
                         />
 
 
                         <div className="flex justify-end gap-2 mt-2">
 
+
                           <button
                             type="button"
+
                             onClick={
                               cancelEdit
                             }
+
                             className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
                           >
 
@@ -1154,11 +1238,13 @@ function Chat() {
 
                           <button
                             type="button"
+
                             onClick={() =>
                               saveEdit(
                                 item.id
                               )
                             }
+
                             className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm"
                           >
 
@@ -1185,6 +1271,7 @@ function Chat() {
                             : "bg-slate-800 text-slate-200 rounded-tl-sm"
                         }`}
                       >
+
 
                         {/* REPLY PREVIEW */}
 
@@ -1245,6 +1332,7 @@ function Chat() {
                         }`}
                       >
 
+
                         {/* TIME */}
 
                         <span>
@@ -1262,11 +1350,13 @@ function Chat() {
 
                         <button
                           type="button"
+
                           onClick={() =>
                             handleReply(
                               item
                             )
                           }
+
                           className="flex items-center gap-1 hover:text-orange-400 transition"
                         >
 
@@ -1285,11 +1375,13 @@ function Chat() {
 
                           <button
                             type="button"
+
                             onClick={() =>
                               startEdit(
                                 item
                               )
                             }
+
                             className="flex items-center gap-1 hover:text-orange-400 transition"
                           >
 
@@ -1310,11 +1402,13 @@ function Chat() {
 
                           <button
                             type="button"
+
                             onClick={() =>
                               handleDelete(
                                 item.id
                               )
                             }
+
                             className="flex items-center gap-1 hover:text-red-400 transition"
                           >
 
@@ -1358,6 +1452,7 @@ function Chat() {
 
             <div className="border-t border-slate-800 px-6 py-3 bg-slate-950/50 flex items-center justify-between">
 
+
               <div>
 
                 <p className="text-xs text-orange-400">
@@ -1386,15 +1481,19 @@ function Chat() {
 
               <button
                 type="button"
+
                 onClick={() =>
                   setReplyingTo(
                     null
                   )
                 }
+
                 className="text-slate-400 hover:text-white"
               >
 
-                <X size={20} />
+                <X
+                  size={20}
+                />
 
               </button>
 
@@ -1409,33 +1508,44 @@ function Chat() {
 
           <div className="border-t border-slate-800 p-5">
 
+
             <form
               onSubmit={
                 handleSend
               }
+
               className="flex gap-3"
             >
 
+
               <input
                 ref={inputRef}
+
                 type="text"
+
                 value={message}
+
                 onChange={(e) =>
                   setMessage(
                     e.target.value
                   )
                 }
+
                 placeholder="Write a message..."
+
                 maxLength={500}
+
                 className="flex-1 bg-slate-800 border border-slate-700 focus:border-orange-500 rounded-2xl px-5 py-4 text-white outline-none transition"
               />
 
 
               <button
                 type="submit"
+
                 disabled={
                   !message.trim()
                 }
+
                 className="px-6 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-500 rounded-2xl text-white font-semibold transition flex items-center gap-2"
               >
 
@@ -1458,11 +1568,14 @@ function Chat() {
 
             </div>
 
+
           </div>
+
 
         </div>
 
       </div>
+
 
     </div>
 

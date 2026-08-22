@@ -1,1084 +1,1286 @@
-import { useEffect, useState } from "react";
+import {
+    useEffect,
+    useState
+} from "react";
 
 import {
-  User,
-  Mail,
-  Calendar,
-  Film,
-  MessageCircle,
-  Heart,
-  Shield,
-  Pencil,
-  Save,
-  X,
-} from "lucide-react";
+    useParams,
+    useNavigate
+} from "react-router-dom";
 
-import { Link } from "react-router-dom";
+import {
+    Pencil,
+    ArrowLeft,
+    Heart,
+    MessageCircle
+} from "lucide-react";
 
 
 function Profile() {
 
-  // =====================================================
-  // STATE
-  // =====================================================
-
-  const [profile, setProfile] =
-    useState(null);
-
-  const [discussions, setDiscussions] =
-    useState([]);
-
-  const [loading, setLoading] =
-    useState(true);
-
-  const [error, setError] =
-    useState("");
-
-  const [editing, setEditing] =
-    useState(false);
-
-  const [name, setName] =
-    useState("");
-
-  const [avatarUrl, setAvatarUrl] =
-    useState("");
-
-  const [saving, setSaving] =
-    useState(false);
-
-  const [message, setMessage] =
-    useState("");
+    const {
+        orbitId
+    } = useParams();
 
 
-  const API_BASE =
-    "http://localhost:5000/api";
+    const navigate =
+        useNavigate();
 
 
-  // =====================================================
-  // LOAD PROFILE
-  // =====================================================
+    // =====================================================
+    // PROFILE STATE
+    // =====================================================
 
-  const loadProfile = async () => {
-
-    try {
-
-      setLoading(true);
-
-      setError("");
+    const [user, setUser] =
+        useState(null);
 
 
-      const token =
+    const [stats, setStats] =
+        useState({
+
+            discussions: 0,
+
+            comments: 0,
+
+            likesReceived: 0
+
+        });
+
+
+    // =====================================================
+    // DISCUSSION STATE
+    // =====================================================
+
+    const [discussions, setDiscussions] =
+        useState([]);
+
+
+    const [discussionsLoading,
+        setDiscussionsLoading] =
+        useState(true);
+
+
+    // =====================================================
+    // PAGE STATE
+    // =====================================================
+
+    const [loading, setLoading] =
+        useState(true);
+
+
+    const [error, setError] =
+        useState("");
+
+
+    // =====================================================
+    // EDIT STATE
+    // =====================================================
+
+    const [editing, setEditing] =
+        useState(false);
+
+
+    const [name, setName] =
+        useState("");
+
+
+    const [avatarUrl, setAvatarUrl] =
+        useState("");
+
+
+    const [saving, setSaving] =
+        useState(false);
+
+
+    const [message, setMessage] =
+        useState("");
+
+
+    // =====================================================
+    // TOKEN
+    // =====================================================
+
+    const token =
         localStorage.getItem(
-          "orbitToken"
+            "orbitToken"
         );
 
 
-      // -----------------------------------------------
-      // NO TOKEN
-      // -----------------------------------------------
+    // =====================================================
+    // LOAD PROFILE
+    // =====================================================
 
-      if (!token) {
+    const loadProfile =
+        async () => {
 
-        setError(
-          "Please login to view your profile."
-        );
+            try {
 
-        return;
+                setLoading(true);
 
-      }
+                setError("");
 
 
-      const headers = {
+                let url;
 
-        Authorization:
-          `Bearer ${token}`
 
-      };
+                // =================================================
+                // OTHER USER
+                // =================================================
 
+                if (orbitId) {
 
-      // =================================================
-      // PROFILE API
-      // =================================================
+                    url =
+                        `http://localhost:5000/api/users/orbit/${encodeURIComponent(
+                            orbitId
+                        )}`;
 
-      const profileResponse =
-        await fetch(
-          `${API_BASE}/users/me`,
-          {
-            headers
-          }
-        );
+                }
 
 
-      const profileData =
-        await profileResponse.json();
+                // =================================================
+                // MY PROFILE
+                // =================================================
 
+                else {
 
-      if (
-        !profileResponse.ok
-      ) {
+                    url =
+                        "http://localhost:5000/api/users/me";
 
-        throw new Error(
-          profileData.message ||
-          "Failed to load profile."
-        );
+                }
 
-      }
 
+                const response =
+                    await fetch(
 
-      // =================================================
-      // DISCUSSIONS API
-      // =================================================
+                        url,
 
-      const discussionsResponse =
-        await fetch(
-          `${API_BASE}/users/me/discussions`,
-          {
-            headers
-          }
-        );
+                        {
 
+                            headers: {
 
-      const discussionsData =
-        await discussionsResponse.json();
+                                Authorization:
+                                    `Bearer ${token}`
 
+                            }
 
-      if (
-        !discussionsResponse.ok
-      ) {
+                        }
 
-        throw new Error(
-          discussionsData.message ||
-          "Failed to load discussions."
-        );
+                    );
 
-      }
 
+                const data =
+                    await response.json();
 
-      // =================================================
-      // SAVE DATA
-      // =================================================
 
-      setProfile(
-        profileData
-      );
+                if (!response.ok) {
 
+                    throw new Error(
 
-      setDiscussions(
-        discussionsData.discussions || []
-      );
+                        data.message ||
+                        "Failed to load profile."
 
+                    );
 
-      // =================================================
-      // SET EDIT FORM VALUES
-      // =================================================
+                }
 
-      setName(
-        profileData.user.name || ""
-      );
 
+                setUser(
+                    data.user
+                );
 
-      setAvatarUrl(
-        profileData.user.avatarUrl || ""
-      );
 
+                setStats(
+                    data.stats || {
 
-    } catch (error) {
+                        discussions: 0,
 
-      console.error(
-        "PROFILE ERROR:",
-        error
-      );
+                        comments: 0,
 
+                        likesReceived: 0
 
-      setError(
-        error.message ||
-        "Something went wrong."
-      );
+                    }
+                );
 
 
-    } finally {
+                // =================================================
+                // OWN PROFILE EDIT FIELDS
+                // =================================================
 
-      setLoading(false);
+                if (!orbitId) {
 
-    }
+                    setName(
+                        data.user.name || ""
+                    );
 
-  };
 
+                    setAvatarUrl(
+                        data.user.avatarUrl || ""
+                    );
 
-  // =====================================================
-  // LOAD ON PAGE OPEN
-  // =====================================================
+                }
 
-  useEffect(() => {
 
-    loadProfile();
+            } catch (error) {
 
-  }, []);
+                console.error(
+                    "PROFILE ERROR:",
+                    error
+                );
 
 
-  // =====================================================
-  // OPEN EDIT MODE
-  // =====================================================
+                setError(
+                    error.message ||
+                    "Failed to load profile."
+                );
 
-  const handleEdit = () => {
 
-    setName(
-      profile?.user?.name || ""
-    );
+            } finally {
 
-    setAvatarUrl(
-      profile?.user?.avatarUrl || ""
-    );
+                setLoading(false);
 
-    setMessage("");
+            }
 
-    setEditing(true);
+        };
 
-  };
 
+    // =====================================================
+    // LOAD DISCUSSIONS
+    // =====================================================
 
-  // =====================================================
-  // CANCEL EDIT
-  // =====================================================
+    const loadDiscussions =
+        async () => {
 
-  const handleCancel = () => {
+            try {
 
-    setName(
-      profile?.user?.name || ""
-    );
+                setDiscussionsLoading(
+                    true
+                );
 
-    setAvatarUrl(
-      profile?.user?.avatarUrl || ""
-    );
 
-    setMessage("");
+                let url;
 
-    setEditing(false);
 
-  };
+                // =================================================
+                // OTHER USER
+                // =================================================
 
+                if (orbitId) {
 
-  // =====================================================
-  // SAVE PROFILE
-  // =====================================================
+                    url =
+                        `http://localhost:5000/api/users/orbit/${encodeURIComponent(
+                            orbitId
+                        )}/discussions`;
 
-  const handleSave = async () => {
+                }
 
-    // -----------------------------------------------
-    // NAME VALIDATION
-    // -----------------------------------------------
 
-    if (
-      !name.trim()
-    ) {
+                // =================================================
+                // MY PROFILE
+                // =================================================
 
-      setMessage(
-        "Name cannot be empty."
-      );
+                else {
 
-      return;
+                    url =
+                        "http://localhost:5000/api/users/me/discussions";
 
-    }
+                }
 
 
-    try {
+                const response =
+                    await fetch(
 
-      setSaving(true);
+                        url,
 
-      setMessage("");
+                        {
 
+                            headers: {
 
-      const token =
-        localStorage.getItem(
-          "orbitToken"
-        );
+                                Authorization:
+                                    `Bearer ${token}`
 
+                            }
 
-      // =================================================
-      // UPDATE API
-      // =================================================
+                        }
 
-      const response =
-        await fetch(
-          `${API_BASE}/users/me`,
-          {
+                    );
 
-            method: "PUT",
 
-            headers: {
+                const data =
+                    await response.json();
 
-              "Content-Type":
-                "application/json",
 
-              Authorization:
-                `Bearer ${token}`
+                if (!response.ok) {
 
-            },
+                    throw new Error(
 
-            body: JSON.stringify({
+                        data.message ||
+                        "Failed to load discussions."
 
-              name:
-                name.trim(),
+                    );
 
-              avatarUrl:
-                avatarUrl.trim()
+                }
 
-            })
 
-          }
-        );
+                setDiscussions(
+                    data.discussions || []
+                );
 
 
-      const data =
-        await response.json();
+            } catch (error) {
 
+                console.error(
+                    "DISCUSSIONS ERROR:",
+                    error
+                );
 
-      if (
-        !response.ok
-      ) {
 
-        throw new Error(
-          data.message ||
-          "Failed to update profile."
-        );
+                setDiscussions([]);
 
-      }
+            } finally {
 
+                setDiscussionsLoading(
+                    false
+                );
 
-      // =================================================
-      // UPDATE PROFILE STATE
-      // =================================================
+            }
 
-      setProfile(
-        (current) => ({
+        };
 
-          ...current,
 
-          user:
-            data.user
+    // =====================================================
+    // LOAD EVERYTHING
+    // =====================================================
 
-        })
-      );
+    useEffect(() => {
 
+        if (!token) {
 
-      // =================================================
-      // UPDATE LOCAL STORAGE
-      // =================================================
+            navigate("/login");
 
-      const storedUser =
-        localStorage.getItem(
-          "orbitUser"
-        );
-
-
-      if (storedUser) {
-
-        try {
-
-          const oldUser =
-            JSON.parse(
-              storedUser
-            );
-
-
-          const updatedUser = {
-
-            ...oldUser,
-
-            name:
-              data.user.name,
-
-            avatarUrl:
-              data.user.avatarUrl
-
-          };
-
-
-          localStorage.setItem(
-
-            "orbitUser",
-
-            JSON.stringify(
-              updatedUser
-            )
-
-          );
-
-        } catch (error) {
-
-          console.error(
-            "LOCAL USER UPDATE ERROR:",
-            error
-          );
+            return;
 
         }
 
-      }
+
+        const loadEverything =
+            async () => {
+
+                await loadProfile();
+
+                await loadDiscussions();
+
+            };
 
 
-      // =================================================
-      // CLOSE EDIT MODE
-      // =================================================
+        loadEverything();
 
-      setEditing(false);
-
-      setMessage(
-        "Profile updated successfully!"
-      );
+    }, [orbitId]);
 
 
-    } catch (error) {
+    // =====================================================
+    // UPDATE PROFILE
+    // =====================================================
 
-      console.error(
-        "SAVE PROFILE ERROR:",
-        error
-      );
+    const handleSave =
+        async () => {
+
+            if (
+                !name.trim()
+            ) {
+
+                setMessage(
+                    "Name cannot be empty."
+                );
+
+                return;
+
+            }
 
 
-      setMessage(
-        error.message ||
-        "Failed to update profile."
-      );
+            try {
+
+                setSaving(true);
+
+                setMessage("");
 
 
-    } finally {
+                const response =
+                    await fetch(
 
-      setSaving(false);
+                        "http://localhost:5000/api/users/me",
+
+                        {
+
+                            method:
+                                "PUT",
+
+                            headers: {
+
+                                "Content-Type":
+                                    "application/json",
+
+                                Authorization:
+                                    `Bearer ${token}`
+
+                            },
+
+                            body:
+                                JSON.stringify({
+
+                                    name:
+                                        name.trim(),
+
+                                    avatarUrl:
+                                        avatarUrl.trim()
+
+                                })
+
+                        }
+
+                    );
+
+
+                const data =
+                    await response.json();
+
+
+                if (!response.ok) {
+
+                    setMessage(
+
+                        data.message ||
+                        "Failed to update profile."
+
+                    );
+
+                    return;
+
+                }
+
+
+                setUser(
+                    data.user
+                );
+
+
+                setName(
+                    data.user.name
+                );
+
+
+                setAvatarUrl(
+                    data.user.avatarUrl || ""
+                );
+
+
+                // =================================================
+                // UPDATE LOCAL USER
+                // =================================================
+
+                const storedUser =
+                    localStorage.getItem(
+                        "orbitUser"
+                    );
+
+
+                if (storedUser) {
+
+                    try {
+
+                        const parsedUser =
+                            JSON.parse(
+                                storedUser
+                            );
+
+
+                        localStorage.setItem(
+
+                            "orbitUser",
+
+                            JSON.stringify({
+
+                                ...parsedUser,
+
+                                name:
+                                    data.user.name,
+
+                                orbitId:
+                                    data.user.orbitId,
+
+                                avatarUrl:
+                                    data.user.avatarUrl
+
+                            })
+
+                        );
+
+
+                    } catch {
+
+                        // Ignore invalid local storage
+
+                    }
+
+                }
+
+
+                setEditing(false);
+
+
+                setMessage(
+                    "Profile updated successfully!"
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "UPDATE PROFILE ERROR:",
+                    error
+                );
+
+
+                setMessage(
+                    "Server is not responding."
+                );
+
+
+            } finally {
+
+                setSaving(false);
+
+            }
+
+        };
+
+
+    // =====================================================
+    // FORMAT DATE
+    // =====================================================
+
+    const formatDate =
+        (date) => {
+
+            if (!date) {
+
+                return "";
+
+            }
+
+
+            const value =
+                new Date(date);
+
+
+            if (
+                Number.isNaN(
+                    value.getTime()
+                )
+            ) {
+
+                return date;
+
+            }
+
+
+            return value.toLocaleDateString(
+                undefined,
+                {
+                    day:
+                        "numeric",
+
+                    month:
+                        "long",
+
+                    year:
+                        "numeric"
+
+                }
+            );
+
+        };
+
+
+    // =====================================================
+    // LOADING
+    // =====================================================
+
+    if (loading) {
+
+        return (
+
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+
+                <p className="text-slate-400">
+
+                    Loading profile...
+
+                </p>
+
+            </div>
+
+        );
 
     }
 
-  };
 
+    // =====================================================
+    // ERROR
+    // =====================================================
 
-  // =====================================================
-  // LOADING
-  // =====================================================
+    if (
+        error ||
+        !user
+    ) {
 
-  if (loading) {
+        return (
 
-    return (
+            <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-5">
 
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+                <p className="text-red-400">
 
-        <p className="text-slate-400">
-          Loading your Orbit profile...
-        </p>
+                    {error ||
+                        "User not found."}
 
-      </div>
+                </p>
 
-    );
-
-  }
-
-
-  // =====================================================
-  // ERROR
-  // =====================================================
-
-  if (error) {
-
-    return (
-
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center px-6">
-
-        <div className="text-center">
-
-          <p className="text-red-400 mb-5">
-            {error}
-          </p>
-
-
-          <Link
-            to="/login"
-            className="inline-block bg-orange-500 hover:bg-orange-600 px-5 py-3 rounded-xl font-semibold transition"
-          >
-            Go to Login
-          </Link>
-
-        </div>
-
-      </div>
-
-    );
-
-  }
-
-
-  const user =
-    profile?.user;
-
-  const stats =
-    profile?.stats;
-
-
-  // =====================================================
-  // MAIN PAGE
-  // =====================================================
-
-  return (
-
-    <div className="min-h-screen bg-slate-950 text-white">
-
-      <div className="max-w-6xl mx-auto px-6 py-12">
-
-
-        {/* =================================================
-            PROFILE CARD
-        ================================================= */}
-
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
-
-
-          {/* =================================================
-              COVER
-          ================================================= */}
-
-          <div className="h-36 bg-gradient-to-r from-orange-600 via-orange-500 to-amber-400" />
-
-
-          <div className="px-8 pb-8">
-
-
-            {/* =================================================
-                AVATAR + BASIC INFO
-            ================================================= */}
-
-            <div className="flex flex-col md:flex-row md:items-end gap-6 -mt-14">
-
-
-              {/* =================================================
-                  AVATAR
-              ================================================= */}
-
-              <div className="w-28 h-28 rounded-full bg-slate-800 border-4 border-slate-900 overflow-hidden flex items-center justify-center shadow-xl flex-shrink-0">
-
-                {user?.avatarUrl ? (
-
-                  <img
-                    src={user.avatarUrl}
-                    alt={user.name}
-                    className="w-full h-full object-cover"
-                  />
-
-                ) : (
-
-                  <User
-                    size={48}
-                    className="text-orange-500"
-                  />
-
-                )}
-
-              </div>
-
-
-              {/* =================================================
-                  USER INFORMATION
-              ================================================= */}
-
-              <div className="flex-1 pt-3">
-
-                <div className="flex flex-wrap items-center gap-3">
-
-                  <h1 className="text-4xl font-bold">
-                    {user?.name}
-                  </h1>
-
-
-                  {user?.role === "ADMIN" && (
-
-                    <span className="flex items-center gap-1 bg-orange-500/10 text-orange-400 px-3 py-1 rounded-full text-sm">
-
-                      <Shield size={14} />
-
-                      Admin
-
-                    </span>
-
-                  )}
-
-                </div>
-
-
-                <div className="flex flex-wrap gap-5 mt-3 text-slate-400 text-sm">
-
-                  <span className="flex items-center gap-2">
-
-                    <Mail size={15} />
-
-                    {user?.email}
-
-                  </span>
-
-
-                  <span className="flex items-center gap-2">
-
-                    <Calendar size={15} />
-
-                    Joined{" "}
-
-                    {user?.createdAt
-                      ? new Date(
-                          user.createdAt
-                        ).toLocaleDateString()
-                      : "Orbit"}
-
-                  </span>
-
-                </div>
-
-              </div>
-
-
-              {/* =================================================
-                  EDIT BUTTON
-              ================================================= */}
-
-              {!editing && (
 
                 <button
-                  onClick={handleEdit}
-                  className="flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 px-5 py-3 rounded-xl transition"
+
+                    onClick={() =>
+                        navigate(-1)
+                    }
+
+                    className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white px-5 py-3 rounded-xl"
+
                 >
 
-                  <Pencil size={18} />
+                    <ArrowLeft
+                        size={18}
+                    />
 
-                  Edit Profile
+                    Go Back
 
                 </button>
 
-              )}
-
             </div>
 
+        );
 
-            {/* =================================================
-                EDIT PROFILE PANEL
-            ================================================= */}
-
-            {editing && (
-
-              <div className="mt-8 pt-8 border-t border-slate-800">
-
-                <div className="flex items-center justify-between mb-6">
-
-                  <div>
-
-                    <h2 className="text-2xl font-bold">
-                      Edit Profile
-                    </h2>
-
-                    <p className="text-slate-400 text-sm mt-1">
-                      Update your Orbit profile information.
-                    </p>
-
-                  </div>
+    }
 
 
-                  <button
-                    onClick={handleCancel}
-                    className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
-                  >
+    // =====================================================
+    // PAGE
+    // =====================================================
 
-                    <X size={20} />
+    return (
 
-                  </button>
+        <div className="min-h-screen bg-slate-950 text-white px-6 py-10">
 
-                </div>
-
-
-                <div className="max-w-2xl space-y-6">
+            <div className="max-w-4xl mx-auto">
 
 
-                  {/* =================================================
-                      NAME
-                  ================================================= */}
+                {/* =================================================
+                    BACK BUTTON
+                ================================================= */}
 
-                  <div>
+                {orbitId && (
 
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Display Name
-                    </label>
+                    <button
 
+                        onClick={() =>
+                            navigate(-1)
+                        }
 
-                    <input
-                      type="text"
-                      value={name}
-                      maxLength={50}
-                      onChange={(e) =>
-                        setName(
-                          e.target.value
-                        )
-                      }
-                      placeholder="Your name"
-                      className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-orange-500 transition"
-                    />
+                        className="flex items-center gap-2 text-slate-400 hover:text-white mb-6"
 
+                    >
 
-                    <p className="text-xs text-slate-500 mt-2">
-                      Maximum 50 characters.
-                    </p>
-
-                  </div>
-
-
-                  {/* =================================================
-                      AVATAR URL
-                  ================================================= */}
-
-                  <div>
-
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Profile Picture URL
-                    </label>
-
-
-                    <input
-                      type="url"
-                      value={avatarUrl}
-                      onChange={(e) =>
-                        setAvatarUrl(
-                          e.target.value
-                        )
-                      }
-                      placeholder="https://example.com/avatar.jpg"
-                      className="w-full px-4 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-orange-500 transition"
-                    />
-
-
-                    <p className="text-xs text-slate-500 mt-2">
-                      Paste a public image URL. Direct image upload will be added later.
-                    </p>
-
-                  </div>
-
-
-                  {/* =================================================
-                      AVATAR PREVIEW
-                  ================================================= */}
-
-                  {avatarUrl.trim() && (
-
-                    <div>
-
-                      <p className="text-sm text-slate-400 mb-2">
-                        Preview
-                      </p>
-
-
-                      <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-orange-500 bg-slate-800">
-
-                        <img
-                          src={avatarUrl}
-                          alt="Avatar preview"
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display =
-                              "none";
-                          }}
+                        <ArrowLeft
+                            size={18}
                         />
 
-                      </div>
-
-                    </div>
-
-                  )}
-
-
-                  {/* =================================================
-                      BUTTONS
-                  ================================================= */}
-
-                  <div className="flex gap-3">
-
-
-                    <button
-                      onClick={handleSave}
-                      disabled={saving}
-                      className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-6 py-3 rounded-xl font-semibold transition"
-                    >
-
-                      <Save size={18} />
-
-                      {saving
-                        ? "Saving..."
-                        : "Save Changes"}
+                        Back
 
                     </button>
 
-
-                    <button
-                      onClick={handleCancel}
-                      disabled={saving}
-                      className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 px-6 py-3 rounded-xl font-semibold transition"
-                    >
-
-                      <X size={18} />
-
-                      Cancel
-
-                    </button>
-
-                  </div>
+                )}
 
 
-                  {/* =================================================
-                      MESSAGE
-                  ================================================= */}
+                {/* =================================================
+                    PROFILE CARD
+                ================================================= */}
 
-                  {message && (
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8">
 
-                    <div className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-300">
-                      {message}
+
+                    {/* =================================================
+                        HEADER
+                    ================================================= */}
+
+                    <div className="flex items-start justify-between gap-6">
+
+
+                        <div className="flex items-center gap-5">
+
+
+                            {/* =================================================
+                                AVATAR
+                            ================================================= */}
+
+                            {user.avatarUrl ? (
+
+                                <img
+
+                                    src={
+                                        user.avatarUrl
+                                    }
+
+                                    alt={
+                                        user.name
+                                    }
+
+                                    className="w-24 h-24 rounded-full object-cover border-2 border-orange-500"
+
+                                />
+
+                            ) : (
+
+                                <div className="w-24 h-24 rounded-full bg-orange-500 flex items-center justify-center text-3xl font-bold">
+
+                                    {user.name
+                                        ?.charAt(0)
+                                        ?.toUpperCase()}
+
+                                </div>
+
+                            )}
+
+
+                            {/* =================================================
+                                USER INFO
+                            ================================================= */}
+
+                            <div>
+
+                                <h1 className="text-3xl font-bold">
+
+                                    {user.name}
+
+                                </h1>
+
+
+                                <p className="text-orange-400 font-medium mt-1">
+
+                                    @{user.orbitId}
+
+                                </p>
+
+
+                                <p className="text-slate-500 text-sm mt-1">
+
+                                    {user.role}
+
+                                </p>
+
+
+                                <p className="text-slate-500 text-sm mt-2">
+
+                                    Joined{" "}
+
+                                    {formatDate(
+                                        user.createdAt
+                                    )}
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        {/* =================================================
+                            EDIT BUTTON
+                        ================================================= */}
+
+                        {!orbitId && (
+
+                            <button
+
+                                onClick={() =>
+                                    setEditing(
+                                        !editing
+                                    )
+                                }
+
+                                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 px-5 py-3 rounded-xl"
+
+                            >
+
+                                <Pencil
+                                    size={18}
+                                />
+
+                                Edit
+
+                            </button>
+
+                        )}
+
                     </div>
 
-                  )}
+
+                    {/* =================================================
+                        EMAIL
+                    ================================================= */}
+
+                    {!orbitId && user.email && (
+
+                        <div className="mt-8 border-t border-slate-800 pt-6">
+
+                            <p className="text-sm text-slate-500">
+
+                                Email
+
+                            </p>
+
+                            <p className="text-slate-200 text-lg mt-1">
+
+                                {user.email}
+
+                            </p>
+
+                        </div>
+
+                    )}
+
+
+                    {/* =================================================
+                        EDIT FORM
+                    ================================================= */}
+
+                    {!orbitId && editing && (
+
+                        <div className="mt-8 border-t border-slate-800 pt-6 space-y-4">
+
+
+                            <div>
+
+                                <label className="block text-sm text-slate-400 mb-2">
+
+                                    Name
+
+                                </label>
+
+
+                                <input
+
+                                    value={
+                                        name
+                                    }
+
+                                    onChange={(e) =>
+                                        setName(
+                                            e.target.value
+                                        )
+                                    }
+
+                                    maxLength={50}
+
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-orange-500"
+
+                                />
+
+                            </div>
+
+
+                            <div>
+
+                                <label className="block text-sm text-slate-400 mb-2">
+
+                                    Avatar URL
+
+                                </label>
+
+
+                                <input
+
+                                    value={
+                                        avatarUrl
+                                    }
+
+                                    onChange={(e) =>
+                                        setAvatarUrl(
+                                            e.target.value
+                                        )
+                                    }
+
+                                    placeholder="https://..."
+
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-orange-500"
+
+                                />
+
+                            </div>
+
+
+                            {message && (
+
+                                <p className="text-orange-400">
+
+                                    {message}
+
+                                </p>
+
+                            )}
+
+
+                            <div className="flex gap-3">
+
+
+                                <button
+
+                                    onClick={
+                                        handleSave
+                                    }
+
+                                    disabled={
+                                        saving
+                                    }
+
+                                    className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 px-5 py-3 rounded-xl font-semibold"
+
+                                >
+
+                                    {saving
+                                        ? "Saving..."
+                                        : "Save Changes"}
+
+                                </button>
+
+
+                                <button
+
+                                    onClick={() => {
+
+                                        setEditing(
+                                            false
+                                        );
+
+                                        setMessage(
+                                            ""
+                                        );
+
+                                    }}
+
+                                    className="bg-slate-800 hover:bg-slate-700 px-5 py-3 rounded-xl"
+
+                                >
+
+                                    Cancel
+
+                                </button>
+
+                            </div>
+
+                        </div>
+
+                    )}
+
+
+                    {/* =================================================
+                        STATS
+                    ================================================= */}
+
+                    <div className="grid grid-cols-3 gap-4 mt-8">
+
+
+                        {/* DISCUSSIONS */}
+
+                        <div className="bg-slate-800 rounded-2xl p-5 text-center">
+
+                            <div className="flex justify-center mb-2">
+
+                                <MessageCircle
+                                    size={22}
+                                    className="text-orange-400"
+                                />
+
+                            </div>
+
+                            <p className="text-2xl font-bold">
+
+                                {
+                                    stats.discussions
+                                }
+
+                            </p>
+
+                            <p className="text-slate-400 text-sm mt-1">
+
+                                Discussions
+
+                            </p>
+
+                        </div>
+
+
+                        {/* COMMENTS */}
+
+                        <div className="bg-slate-800 rounded-2xl p-5 text-center">
+
+                            <div className="flex justify-center mb-2">
+
+                                <MessageCircle
+                                    size={22}
+                                    className="text-orange-400"
+                                />
+
+                            </div>
+
+                            <p className="text-2xl font-bold">
+
+                                {
+                                    stats.comments
+                                }
+
+                            </p>
+
+                            <p className="text-slate-400 text-sm mt-1">
+
+                                Comments
+
+                            </p>
+
+                        </div>
+
+
+                        {/* LIKES */}
+
+                        <div className="bg-slate-800 rounded-2xl p-5 text-center">
+
+                            <div className="flex justify-center mb-2">
+
+                                <Heart
+                                    size={22}
+                                    className="text-orange-400"
+                                />
+
+                            </div>
+
+                            <p className="text-2xl font-bold">
+
+                                {
+                                    stats.likesReceived
+                                }
+
+                            </p>
+
+                            <p className="text-slate-400 text-sm mt-1">
+
+                                Likes Received
+
+                            </p>
+
+                        </div>
+
+
+                    </div>
+
 
                 </div>
 
-              </div>
 
-            )}
+                {/* =================================================
+                    DISCUSSIONS SECTION
+                ================================================= */}
 
+                <div className="mt-8">
 
-            {/* =================================================
-                SUCCESS MESSAGE
-            ================================================= */}
 
-            {!editing && message && (
+                    <div className="flex items-center justify-between mb-5">
 
-              <div className="mt-5 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3 text-sm text-green-400">
-                {message}
-              </div>
+                        <div>
 
-            )}
+                            <h2 className="text-2xl font-bold">
 
-          </div>
+                                {orbitId
+                                    ? `${user.name}'s Discussions`
+                                    : "Your Discussions"}
 
-        </div>
+                            </h2>
 
 
-        {/* =================================================
-            STATS
-        ================================================= */}
+                            <p className="text-slate-500 text-sm mt-1">
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-8">
+                                Discussions started in Orbit
 
+                            </p>
 
-          {/* DISCUSSIONS */}
+                        </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
 
-            <div className="flex items-center justify-between">
+                        <span className="text-slate-500">
 
-              <div>
+                            {discussions.length}
 
-                <p className="text-slate-400">
-                  Discussions
-                </p>
-
-                <p className="text-3xl font-bold mt-2">
-                  {stats?.discussions || 0}
-                </p>
-
-              </div>
-
-
-              <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center">
-
-                <Film
-                  size={24}
-                  className="text-orange-500"
-                />
-
-              </div>
-
-            </div>
-
-          </div>
-
-
-          {/* COMMENTS */}
-
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-
-            <div className="flex items-center justify-between">
-
-              <div>
-
-                <p className="text-slate-400">
-                  Comments
-                </p>
-
-                <p className="text-3xl font-bold mt-2">
-                  {stats?.comments || 0}
-                </p>
-
-              </div>
-
-
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
-
-                <MessageCircle
-                  size={24}
-                  className="text-blue-400"
-                />
-
-              </div>
-
-            </div>
-
-          </div>
-
-
-          {/* LIKES */}
-
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-
-            <div className="flex items-center justify-between">
-
-              <div>
-
-                <p className="text-slate-400">
-                  Likes Received
-                </p>
-
-                <p className="text-3xl font-bold mt-2">
-                  {stats?.likesReceived || 0}
-                </p>
-
-              </div>
-
-
-              <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center">
-
-                <Heart
-                  size={24}
-                  className="text-red-500"
-                  fill="currentColor"
-                />
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        {/* =================================================
-            MY DISCUSSIONS
-        ================================================= */}
-
-        <div className="mt-12">
-
-
-          <div className="flex items-center justify-between mb-6">
-
-            <h2 className="text-2xl font-bold">
-              🎬 My Discussions
-            </h2>
-
-
-            <Link
-              to="/movies"
-              className="text-orange-500 hover:text-orange-400 transition"
-            >
-              Go to Movies →
-            </Link>
-
-          </div>
-
-
-          {discussions.length === 0 ? (
-
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
-
-              <p className="text-slate-400">
-                You haven't created any discussions yet.
-              </p>
-
-
-              <Link
-                to="/movies"
-                className="inline-block mt-4 bg-orange-500 hover:bg-orange-600 px-5 py-3 rounded-xl font-semibold transition"
-              >
-                Start a Discussion
-              </Link>
-
-            </div>
-
-          ) : (
-
-            <div className="space-y-5">
-
-              {discussions.map(
-                (discussion) => (
-
-                  <div
-                    key={discussion.id}
-                    className="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-orange-500 transition"
-                  >
-
-                    <div className="flex items-center justify-between">
-
-                      <span className="text-orange-500 text-sm font-semibold">
-                        {discussion.type}
-                      </span>
-
-
-                      <span className="text-slate-500 text-sm">
-
-                        {discussion.created_at
-                          ? new Date(
-                              discussion.created_at
-                            ).toLocaleDateString()
-                          : ""}
-
-                      </span>
+                        </span>
 
                     </div>
 
 
-                    <h3 className="text-xl font-semibold mt-3">
-                      {discussion.title}
-                    </h3>
+                    {/* =================================================
+                        LOADING
+                    ================================================= */}
+
+                    {discussionsLoading && (
+
+                        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
+
+                            <p className="text-slate-400">
+
+                                Loading discussions...
+
+                            </p>
+
+                        </div>
+
+                    )}
 
 
-                    <p className="text-slate-400 mt-2">
-                      {discussion.description}
-                    </p>
+                    {/* =================================================
+                        EMPTY
+                    ================================================= */}
+
+                    {!discussionsLoading &&
+                        discussions.length === 0 && (
+
+                            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center">
+
+                                <MessageCircle
+                                    size={30}
+                                    className="mx-auto text-slate-600 mb-3"
+                                />
+
+                                <p className="text-slate-400">
+
+                                    {orbitId
+                                        ? "This user hasn't started any discussions yet."
+                                        : "You haven't started any discussions yet."}
+
+                                </p>
+
+                            </div>
+
+                        )}
 
 
-                    <div className="flex gap-5 mt-5 text-slate-400 text-sm">
+                    {/* =================================================
+                        DISCUSSION LIST
+                    ================================================= */}
 
-                      <span className="flex items-center gap-1">
+                    {!discussionsLoading &&
+                        discussions.length > 0 && (
 
-                        <Heart size={15} />
+                            <div className="space-y-4">
 
-                        {discussion.likes || 0}
+                                {discussions.map(
+                                    (discussion) => (
 
-                      </span>
+                                        <div
 
-                    </div>
+                                            key={
+                                                discussion.id
+                                            }
 
-                  </div>
+                                            className="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-slate-700 transition"
 
-                )
-              )}
+                                        >
+
+                                            {/* =================================================
+                                                TITLE
+                                            ================================================= */}
+
+                                            <h3 className="text-xl font-semibold text-white">
+
+                                                {
+                                                    discussion.title
+                                                }
+
+                                            </h3>
+
+
+                                            {/* =================================================
+                                                DESCRIPTION
+                                            ================================================= */}
+
+                                            <p className="text-slate-400 mt-2 leading-relaxed">
+
+                                                {
+                                                    discussion.description
+                                                }
+
+                                            </p>
+
+
+                                            {/* =================================================
+                                                FOOTER
+                                            ================================================= */}
+
+                                            <div className="flex items-center gap-5 mt-5 text-sm">
+
+
+                                                {/* LIKES */}
+
+                                                <div className="flex items-center gap-2 text-slate-400">
+
+                                                    <Heart
+                                                        size={17}
+                                                        className="text-orange-400"
+                                                    />
+
+                                                    {
+                                                        discussion.likes ||
+                                                        0
+                                                    }
+
+                                                    Likes
+
+                                                </div>
+
+
+                                                {/* DATE */}
+
+                                                <div className="text-slate-500">
+
+                                                    {formatDate(
+                                                        discussion.created_at
+                                                    )}
+
+                                                </div>
+
+
+                                            </div>
+
+                                        </div>
+
+                                    )
+
+                                )}
+
+                            </div>
+
+                        )}
+
+                </div>
+
 
             </div>
 
-          )}
-
         </div>
 
-      </div>
-
-    </div>
-
-  );
+    );
 
 }
 

@@ -16,70 +16,183 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 
 // ======================================================
+// GENERATE ORBIT ID
+// ======================================================
+
+function generateOrbitId(name) {
+
+    let cleanName =
+        name
+            .replace(/[^a-zA-Z0-9]/g, "")
+            .toLowerCase()
+            .substring(0, 10);
+
+
+    if (!cleanName) {
+
+        cleanName = "orbit";
+
+    }
+
+
+    let orbitId;
+
+
+    do {
+
+        const randomNumber =
+            Math.floor(
+                1000 + Math.random() * 9000
+            );
+
+
+        orbitId =
+            `${cleanName}M${randomNumber}`;
+
+
+        const existing =
+            db.prepare(`
+                SELECT id
+                FROM users
+                WHERE orbit_id = ?
+            `).get(orbitId);
+
+
+        if (!existing) {
+
+            return orbitId;
+
+        }
+
+    } while (true);
+
+}
+
+
+// ======================================================
 // REGISTER
 // ======================================================
 
 router.post("/register", async (req, res) => {
 
-    console.log("===== REGISTER API CALLED =====");
+    console.log(
+        "===== REGISTER API CALLED ====="
+    );
 
-    const { name, email, password } = req.body;
 
-    // Basic validation
-    if (!name || !email || !password) {
+    const {
+        name,
+        email,
+        password
+    } = req.body;
+
+
+    // ==================================================
+    // BASIC VALIDATION
+    // ==================================================
+
+    if (
+        !name ||
+        !email ||
+        !password
+    ) {
 
         return res.status(400).json({
+
             success: false,
-            message: "Please fill all the fields."
+
+            message:
+                "Please fill all the fields."
+
         });
 
     }
 
+
     try {
 
-        // ==========================================
-        // CHECK EXISTING USER
-        // ==========================================
+        // ==============================================
+        // CHECK EXISTING EMAIL
+        // ==============================================
 
-        const existingUser = db.prepare(`
-            SELECT id
-            FROM users
-            WHERE email = ?
-        `).get(email);
+        const existingUser =
+            db.prepare(`
+                SELECT
+                    id
+                FROM users
+                WHERE email = ?
+            `).get(email);
+
 
         if (existingUser) {
 
             return res.status(409).json({
+
                 success: false,
-                message: "Email already registered."
+
+                message:
+                    "Email already registered."
+
             });
 
         }
 
 
-        // ==========================================
+        // ==============================================
+        // GENERATE ORBIT ID
+        // ==============================================
+
+        const orbitId =
+            generateOrbitId(name);
+
+
+        console.log(
+            "Generated Orbit ID:",
+            orbitId
+        );
+
+
+        // ==============================================
         // HASH PASSWORD
-        // ==========================================
+        // ==============================================
 
         const hashedPassword =
-            await bcrypt.hash(password, 10);
+            await bcrypt.hash(
+                password,
+                10
+            );
 
 
-        // ==========================================
+        // ==============================================
         // SAVE USER
-        // ==========================================
+        // ==============================================
 
-        const statement = db.prepare(`
-            INSERT INTO users
-            (name, email, password)
-            VALUES (?, ?, ?)
-        `);
+        const statement =
+            db.prepare(`
+                INSERT INTO users
+                (
+                    name,
+                    email,
+                    password,
+                    orbit_id
+                )
 
-        const result = statement.run(
-            name,
-            email,
-            hashedPassword
-        );
+                VALUES (?, ?, ?, ?)
+            `);
+
+
+        const result =
+            statement.run(
+
+                name.trim(),
+
+                email.trim(),
+
+                hashedPassword,
+
+                orbitId
+
+            );
 
 
         console.log(
@@ -88,6 +201,10 @@ router.post("/register", async (req, res) => {
         );
 
 
+        // ==============================================
+        // RESPONSE
+        // ==============================================
+
         res.json({
 
             success: true,
@@ -95,7 +212,10 @@ router.post("/register", async (req, res) => {
             message:
                 "User registered successfully!",
 
-            userId: result.lastInsertRowid
+            userId:
+                result.lastInsertRowid,
+
+            orbitId
 
         });
 
@@ -106,6 +226,7 @@ router.post("/register", async (req, res) => {
             "REGISTER ERROR:",
             error
         );
+
 
         res.status(500).json({
 
@@ -127,16 +248,25 @@ router.post("/register", async (req, res) => {
 
 router.post("/login", async (req, res) => {
 
-    console.log("===== LOGIN API CALLED =====");
+    console.log(
+        "===== LOGIN API CALLED ====="
+    );
 
-    const { email, password } = req.body;
+
+    const {
+        email,
+        password
+    } = req.body;
 
 
-    // ==========================================
+    // ==================================================
     // VALIDATION
-    // ==========================================
+    // ==================================================
 
-    if (!email || !password) {
+    if (
+        !email ||
+        !password
+    ) {
 
         return res.status(400).json({
 
@@ -152,20 +282,22 @@ router.post("/login", async (req, res) => {
 
     try {
 
-        // ==========================================
+        // ==============================================
         // FIND USER
-        // ==========================================
+        // ==============================================
 
-        const user = db.prepare(`
-            SELECT
-                id,
-                name,
-                email,
-                password,
-                role
-            FROM users
-            WHERE email = ?
-        `).get(email);
+        const user =
+            db.prepare(`
+                SELECT
+                    id,
+                    name,
+                    email,
+                    password,
+                    role,
+                    orbit_id
+                FROM users
+                WHERE email = ?
+            `).get(email.trim());
 
 
         if (!user) {
@@ -182,9 +314,9 @@ router.post("/login", async (req, res) => {
         }
 
 
-        // ==========================================
+        // ==============================================
         // COMPARE PASSWORD
-        // ==========================================
+        // ==============================================
 
         const passwordMatch =
             await bcrypt.compare(
@@ -200,6 +332,7 @@ router.post("/login", async (req, res) => {
                 email
             );
 
+
             return res.status(401).json({
 
                 success: false,
@@ -212,39 +345,53 @@ router.post("/login", async (req, res) => {
         }
 
 
-        // ==========================================
+        // ==============================================
         // CREATE JWT
-        // ==========================================
+        // ==============================================
 
-        const token = jwt.sign(
+        const token =
+            jwt.sign(
 
-            {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            },
+                {
+                    id:
+                        user.id,
 
-            JWT_SECRET,
+                    name:
+                        user.name,
 
-            {
-                expiresIn: "2h"
-            }
+                    email:
+                        user.email,
 
-        );
+                    role:
+                        user.role,
+
+                    orbitId:
+                        user.orbit_id
+                },
+
+                JWT_SECRET,
+
+                {
+                    expiresIn:
+                        "2h"
+                }
+
+            );
 
 
         console.log(
             "LOGIN SUCCESS:",
             user.email,
             "| ROLE:",
-            user.role
+            user.role,
+            "| ORBIT ID:",
+            user.orbit_id
         );
 
 
-        // ==========================================
+        // ==============================================
         // RESPONSE
-        // ==========================================
+        // ==============================================
 
         res.json({
 
@@ -257,13 +404,20 @@ router.post("/login", async (req, res) => {
 
             user: {
 
-                id: user.id,
+                id:
+                    user.id,
 
-                name: user.name,
+                name:
+                    user.name,
 
-                email: user.email,
+                email:
+                    user.email,
 
-                role: user.role
+                role:
+                    user.role,
+
+                orbitId:
+                    user.orbit_id
 
             }
 
@@ -276,6 +430,7 @@ router.post("/login", async (req, res) => {
             "LOGIN ERROR:",
             error
         );
+
 
         res.status(500).json({
 

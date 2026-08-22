@@ -7,7 +7,7 @@ const discussionRoutes = require("./routes/discussion");
 const authRoutes = require("./routes/auth");
 const adminRoutes = require("./routes/admin");
 const chatRoutes = require("./routes/chat");
-
+const userRoutes = require("./routes/user");
 require("./database/database");
 
 const app = express();
@@ -62,7 +62,15 @@ io.on("connection", (socket) => {
         socket.id
     );
 
+    socket.on("join-user", (userId) => {
 
+    socket.join(`user-${userId}`);
+
+    console.log(
+        `User ${userId} joined notification room`
+    );
+
+    });
     socket.on("join-chat", () => {
 
         socket.join("orbit-chat");
@@ -111,7 +119,10 @@ app.use(
     chatRoutes
 );
 
-
+app.use(
+    "/api/users",
+    userRoutes
+);
 // =====================================================
 // ROOT
 // =====================================================
