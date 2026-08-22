@@ -24,9 +24,11 @@ function Login() {
         "http://localhost:5000/api/auth/login",
         {
           method: "POST",
+
           headers: {
             "Content-Type": "application/json",
           },
+
           body: JSON.stringify({
             email: email.trim(),
             password,
@@ -38,7 +40,10 @@ function Login() {
 
       if (!response.ok) {
         setSuccess(false);
-        setMessage(data.message || "Login failed.");
+        setMessage(
+          data.message || "Login failed."
+        );
+
         return;
       }
 
@@ -51,6 +56,7 @@ function Login() {
         data.token
       );
 
+
       // ==========================================
       // SAVE USER
       // ==========================================
@@ -60,27 +66,49 @@ function Login() {
         JSON.stringify(data.user)
       );
 
-      console.log("Login successful:", data.user);
+
+      console.log(
+        "Login successful:",
+        data.user
+      );
+
 
       setSuccess(true);
-      setMessage(data.message);
+
+      setMessage(
+        data.message || "Login successful!"
+      );
+
 
       // ==========================================
       // ROLE BASED REDIRECT
       // ==========================================
 
       if (data.user.role === "ADMIN") {
+
         navigate("/admin");
+
       } else {
-        navigate("/");
+
+        // Normal users enter the cinematic
+        // Welcome experience first.
+
+        navigate("/welcome");
+
       }
 
     } catch (error) {
 
-      console.error("LOGIN ERROR:", error);
+      console.error(
+        "LOGIN ERROR:",
+        error
+      );
 
       setSuccess(false);
-      setMessage("Server is not responding.");
+
+      setMessage(
+        "Server is not responding."
+      );
 
     }
   };
@@ -91,18 +119,31 @@ function Login() {
 
       <div className="bg-slate-900 p-10 rounded-3xl shadow-2xl w-full max-w-md border border-slate-800">
 
+
+        {/* =================================================
+            TITLE
+        ================================================= */}
+
         <h1 className="text-5xl font-bold text-white text-center">
+
           Welcome Back
+
         </h1>
 
+
         <p className="text-slate-400 text-center mt-4 mb-8">
+
           Login to your Orbit account
+
         </p>
 
 
-        {/* MESSAGE */}
+        {/* =================================================
+            MESSAGE
+        ================================================= */}
 
         {message && (
+
           <div
             className={`mb-5 px-4 py-3 rounded-xl text-center font-medium ${
               success
@@ -110,45 +151,94 @@ function Login() {
                 : "bg-red-600 text-white"
             }`}
           >
+
             {message}
+
           </div>
+
         )}
 
 
-        {/* LOGIN FORM */}
+        {/* =================================================
+            LOGIN FORM
+        ================================================= */}
 
         <form
           onSubmit={handleLogin}
           className="space-y-5"
         >
 
+
+          {/* EMAIL */}
+
           <input
             type="email"
             placeholder="Email"
             value={email}
+
             onChange={(e) =>
               setEmail(e.target.value)
             }
-            className="w-full px-5 py-4 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-orange-500"
+
+            className="
+              w-full
+              px-5
+              py-4
+              rounded-xl
+              bg-slate-800
+              border
+              border-slate-700
+              text-white
+              focus:outline-none
+              focus:border-orange-500
+            "
           />
 
+
+          {/* PASSWORD */}
 
           <input
             type="password"
             placeholder="Password"
             value={password}
+
             onChange={(e) =>
               setPassword(e.target.value)
             }
-            className="w-full px-5 py-4 rounded-xl bg-slate-800 border border-slate-700 text-white focus:outline-none focus:border-orange-500"
+
+            className="
+              w-full
+              px-5
+              py-4
+              rounded-xl
+              bg-slate-800
+              border
+              border-slate-700
+              text-white
+              focus:outline-none
+              focus:border-orange-500
+            "
           />
 
 
+          {/* LOGIN BUTTON */}
+
           <button
             type="submit"
-            className="w-full bg-orange-500 hover:bg-orange-600 py-4 rounded-xl text-white font-semibold transition"
+            className="
+              w-full
+              bg-orange-500
+              hover:bg-orange-600
+              py-4
+              rounded-xl
+              text-white
+              font-semibold
+              transition
+            "
           >
+
             Login
+
           </button>
 
         </form>

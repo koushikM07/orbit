@@ -7,6 +7,8 @@ import {
 
 import Navbar from "./components/Navbar";
 
+import Landing from "./pages/Landing";
+import Welcome from "./pages/Welcome";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -24,7 +26,9 @@ import Chat from "./pages/Chat";
 function ProtectedRoute({ children }) {
 
   const token =
-    localStorage.getItem("orbitToken");
+    localStorage.getItem(
+      "orbitToken"
+    );
 
   if (!token) {
 
@@ -52,6 +56,7 @@ function App() {
 
     <BrowserRouter>
 
+
       {/* =================================================
           GLOBAL NAVBAR
       ================================================= */}
@@ -63,16 +68,20 @@ function App() {
 
 
         {/* =================================================
-            PUBLIC ROUTES
+            PUBLIC LANDING
         ================================================= */}
 
         <Route
           path="/"
           element={
-            <Home />
+            <Landing />
           }
         />
 
+
+        {/* =================================================
+            LOGIN
+        ================================================= */}
 
         <Route
           path="/login"
@@ -82,10 +91,44 @@ function App() {
         />
 
 
+        {/* =================================================
+            REGISTER
+        ================================================= */}
+
         <Route
           path="/register"
           element={
             <Register />
+          }
+        />
+
+
+        {/* =================================================
+            WELCOME EXPERIENCE
+        ================================================= */}
+
+        <Route
+          path="/welcome"
+          element={
+
+            <ProtectedRoute>
+
+              <Welcome />
+
+            </ProtectedRoute>
+
+          }
+        />
+
+
+        {/* =================================================
+            HOME
+        ================================================= */}
+
+        <Route
+          path="/home"
+          element={
+            <Home />
           }
         />
 
@@ -97,9 +140,13 @@ function App() {
         <Route
           path="/chat"
           element={
+
             <ProtectedRoute>
+
               <Chat />
+
             </ProtectedRoute>
+
           }
         />
 
@@ -111,9 +158,13 @@ function App() {
         <Route
           path="/movies"
           element={
+
             <ProtectedRoute>
+
               <Movies />
+
             </ProtectedRoute>
+
           }
         />
 
@@ -125,41 +176,49 @@ function App() {
         <Route
           path="/explore"
           element={
+
             <ProtectedRoute>
+
               <Explore />
+
             </ProtectedRoute>
+
           }
         />
 
 
         {/* =================================================
             MY PROFILE
-            Example:
-            /profile
         ================================================= */}
 
         <Route
           path="/profile"
           element={
+
             <ProtectedRoute>
+
               <Profile />
+
             </ProtectedRoute>
+
           }
         />
 
 
         {/* =================================================
             PUBLIC ORBIT ID PROFILE
-            Example:
-            /profile/koushikM4821
         ================================================= */}
 
         <Route
           path="/profile/:orbitId"
           element={
+
             <ProtectedRoute>
+
               <Profile />
+
             </ProtectedRoute>
+
           }
         />
 
@@ -171,9 +230,13 @@ function App() {
         <Route
           path="/admin"
           element={
+
             <ProtectedRoute>
+
               <Admin />
+
             </ProtectedRoute>
+
           }
         />
 
@@ -192,7 +255,6 @@ function App() {
           }
         />
 
-
       </Routes>
 
     </BrowserRouter>
@@ -200,6 +262,5 @@ function App() {
   );
 
 }
-
 
 export default App;

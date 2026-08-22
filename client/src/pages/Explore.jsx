@@ -200,10 +200,10 @@ function Explore() {
           MAP
       ====================================== */}
 
-      <div className="max-w-7xl mx-auto px-6 mt-10">
+      <div className="max-w-7xl mx-auto px-6 mt-10 z-[999] ">
 
-        <div className="rounded-3xl overflow-hidden border border-slate-800 shadow-2xl">
-
+        <div className="rounded-3xl overflow-hidden border border-slate-800 shadow-2xl bg-red-200">
+        <div>
           <MapContainer
             center={[25, 78]}
             zoom={3}
@@ -214,6 +214,7 @@ function Explore() {
               height: "600px",
               width: "100%",
               background: "#020617",
+              zIndex:99,
             }}
           >
 
@@ -286,6 +287,8 @@ function Explore() {
             )}
 
           </MapContainer>
+        </div>
+          
 
         </div>
 

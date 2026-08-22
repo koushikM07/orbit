@@ -177,6 +177,7 @@ function Navbar() {
                 hover:text-white
                 hover:bg-slate-800
                 transition
+                z-index:999
               "
 
               aria-label="Open Orbit menu"
@@ -272,6 +273,7 @@ function Navbar() {
                   shadow-2xl
                   shadow-black/40
                   overflow-hidden
+                  z-[99999999]
                 "
               >
 
@@ -285,6 +287,7 @@ function Navbar() {
                     py-4
                     border-b
                     border-slate-800
+                    z-[99999999]
                   "
                 >
 
@@ -294,6 +297,7 @@ function Navbar() {
                       uppercase
                       tracking-widest
                       text-slate-500
+                      z-[99999999]
                     "
                   >
                     Orbit
@@ -305,6 +309,7 @@ function Navbar() {
                       text-lg
                       font-semibold
                       text-white
+                      z-[99999999]
                     "
                   >
                     Navigation
