@@ -365,7 +365,139 @@ router.put("/me", (req, res) => {
     }
 
 });
+// =====================================================
+// GET USER PROFILE BY ID
+// =====================================================
 
+router.get("/:id", (req, res) => {
+
+    const { id } = req.params;
+
+    try {
+
+        const user = db.prepare(`
+            SELECT
+                id,
+                name,
+                role,
+                avatar_url,
+                created_at
+            FROM users
+            WHERE id = ?
+        `).get(id);
+
+
+        // -----------------------------------------------
+        // USER NOT FOUND
+        // -----------------------------------------------
+
+        if (!user) {
+
+            return res.status(404).json({
+
+                success: false,
+
+                message:
+                    "User not found."
+
+            });
+
+        }
+
+
+        // -----------------------------------------------
+        // DISCUSSION COUNT
+        // -----------------------------------------------
+
+        const discussions = db.prepare(`
+            SELECT COUNT(*) AS count
+            FROM discussions
+            WHERE user_id = ?
+        `).get(user.id).count;
+
+
+        // -----------------------------------------------
+        // COMMENT COUNT
+        // -----------------------------------------------
+
+        const comments = db.prepare(`
+            SELECT COUNT(*) AS count
+            FROM comments
+            WHERE user_id = ?
+        `).get(user.id).count;
+
+
+        // -----------------------------------------------
+        // LIKES RECEIVED
+        // -----------------------------------------------
+
+        const likesReceived = db.prepare(`
+            SELECT COALESCE(SUM(likes), 0) AS count
+            FROM discussions
+            WHERE user_id = ?
+        `).get(user.id).count;
+
+
+        // -----------------------------------------------
+        // RESPONSE
+        // -----------------------------------------------
+
+        res.json({
+
+            success: true,
+
+            user: {
+
+                id:
+                    user.id,
+
+                name:
+                    user.name,
+
+                role:
+                    user.role,
+
+                avatarUrl:
+                    user.avatar_url,
+
+                createdAt:
+                    user.created_at
+
+            },
+
+            stats: {
+
+                discussions,
+
+                comments,
+
+                likesReceived
+
+            }
+
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "GET USER PROFILE ERROR:",
+            error
+        );
+
+
+        res.status(500).json({
+
+            success: false,
+
+            message:
+                "Failed to load user profile."
+
+        });
+
+    }
+
+});
 
 // =====================================================
 // GET MY DISCUSSIONS

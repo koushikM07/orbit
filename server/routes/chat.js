@@ -8,11 +8,6 @@ const {
     checkMessage
 } = require("../utils/orbitGurdian");
 
-
-// =====================================================
-// CHAT ROUTES
-// =====================================================
-
 const router = express.Router();
 
 
@@ -21,6 +16,47 @@ const router = express.Router();
 // =====================================================
 
 router.use(authMiddleware);
+
+
+// =====================================================
+// HELPER — FORMAT MESSAGE
+// =====================================================
+
+function formatMessage(item) {
+
+    return {
+
+        id: item.id,
+
+        message: item.message,
+
+        createdAt: item.created_at,
+
+        user: {
+
+            id: item.user_id,
+
+            name: item.user_name,
+
+            avatarUrl: item.avatar_url
+
+        },
+
+        replyTo: item.reply_to_id
+            ? {
+                id: item.reply_to_id,
+                message: item.reply_message,
+                user: {
+                    id: item.reply_user_id,
+                    name: item.reply_user_name,
+                    avatarUrl: item.reply_avatar_url
+                }
+            }
+            : null
+
+    };
+
+}
 
 
 // =====================================================
@@ -33,18 +69,31 @@ router.get("/", (req, res) => {
 
         const messages = db.prepare(`
             SELECT
+
                 messages.id,
                 messages.message,
                 messages.created_at,
+                messages.reply_to_id,
 
                 users.id AS user_id,
                 users.name AS user_name,
-                users.avatar_url
+                users.avatar_url,
+
+                reply.message AS reply_message,
+                reply_user.id AS reply_user_id,
+                reply_user.name AS reply_user_name,
+                reply_user.avatar_url AS reply_avatar_url
 
             FROM messages
 
             LEFT JOIN users
                 ON messages.user_id = users.id
+
+            LEFT JOIN messages AS reply
+                ON messages.reply_to_id = reply.id
+
+            LEFT JOIN users AS reply_user
+                ON reply.user_id = reply_user.id
 
             ORDER BY messages.created_at ASC
 
@@ -56,32 +105,10 @@ router.get("/", (req, res) => {
 
             success: true,
 
-            messages: messages.map((item) => ({
-
-                id: item.id,
-
-                message: item.message,
-
-                createdAt:
-                    item.created_at,
-
-                user: {
-
-                    id:
-                        item.user_id,
-
-                    name:
-                        item.user_name,
-
-                    avatarUrl:
-                        item.avatar_url
-
-                }
-
-            }))
+            messages:
+                messages.map(formatMessage)
 
         });
-
 
     } catch (error) {
 
@@ -89,7 +116,6 @@ router.get("/", (req, res) => {
             "GET CHAT ERROR:",
             error
         );
-
 
         res.status(500).json({
 
@@ -112,7 +138,8 @@ router.get("/", (req, res) => {
 router.post("/", (req, res) => {
 
     const {
-        message
+        message,
+        replyToId
     } = req.body;
 
 
@@ -136,10 +163,6 @@ router.post("/", (req, res) => {
 
     }
 
-
-    // =================================================
-    // MESSAGE LENGTH
-    // =================================================
 
     if (
         message.trim().length > 500
@@ -185,22 +208,55 @@ router.post("/", (req, res) => {
     try {
 
         // =================================================
-        // INSERT MESSAGE
+        // CHECK REPLY MESSAGE
+        // =================================================
+
+        if (replyToId) {
+
+            const replyMessage =
+                db.prepare(`
+                    SELECT id
+                    FROM messages
+                    WHERE id = ?
+                `).get(replyToId);
+
+
+            if (!replyMessage) {
+
+                return res.status(404).json({
+
+                    success: false,
+
+                    message:
+                        "Message you are replying to was not found."
+
+                });
+
+            }
+
+        }
+
+
+        // =================================================
+        // INSERT
         // =================================================
 
         const result = db.prepare(`
             INSERT INTO messages
             (
                 user_id,
-                message
+                message,
+                reply_to_id
             )
 
-            VALUES (?, ?)
+            VALUES (?, ?, ?)
         `).run(
 
             req.user.id,
 
-            message.trim()
+            message.trim(),
+
+            replyToId || null
 
         );
 
@@ -214,23 +270,29 @@ router.post("/", (req, res) => {
                 SELECT
 
                     messages.id,
-
                     messages.message,
-
                     messages.created_at,
+                    messages.reply_to_id,
 
                     users.id AS user_id,
-
                     users.name AS user_name,
+                    users.avatar_url,
 
-                    users.avatar_url
+                    reply.message AS reply_message,
+                    reply_user.id AS reply_user_id,
+                    reply_user.name AS reply_user_name,
+                    reply_user.avatar_url AS reply_avatar_url
 
                 FROM messages
 
                 LEFT JOIN users
+                    ON messages.user_id = users.id
 
-                    ON messages.user_id =
-                       users.id
+                LEFT JOIN messages AS reply
+                    ON messages.reply_to_id = reply.id
+
+                LEFT JOIN users AS reply_user
+                    ON reply.user_id = reply_user.id
 
                 WHERE messages.id = ?
 
@@ -239,45 +301,13 @@ router.post("/", (req, res) => {
             );
 
 
-        // =================================================
-        // FORMAT MESSAGE
-        // =================================================
-
-        const formattedMessage = {
-
-            id:
-                createdMessage.id,
-
-            message:
-                createdMessage.message,
-
-            createdAt:
-                createdMessage.created_at,
-
-            user: {
-
-                id:
-                    createdMessage.user_id,
-
-                name:
-                    createdMessage.user_name,
-
-                avatarUrl:
-                    createdMessage.avatar_url
-
-            }
-
-        };
+        const formattedMessage =
+            formatMessage(createdMessage);
 
 
         // =================================================
-        // SEND REAL-TIME MESSAGE
+        // REAL-TIME BROADCAST
         // =================================================
-        //
-        // io is attached to req by server.js
-        //
-        // Everyone inside "orbit-chat" receives it.
-        //
 
         if (req.io) {
 
@@ -291,10 +321,6 @@ router.post("/", (req, res) => {
         }
 
 
-        // =================================================
-        // RESPONSE TO SENDER
-        // =================================================
-
         res.status(201).json({
 
             success: true,
@@ -304,7 +330,6 @@ router.post("/", (req, res) => {
 
         });
 
-
     } catch (error) {
 
         console.error(
@@ -312,13 +337,356 @@ router.post("/", (req, res) => {
             error
         );
 
-
         res.status(500).json({
 
             success: false,
 
             message:
                 "Failed to send message."
+
+        });
+
+    }
+
+});
+
+
+// =====================================================
+// EDIT CHAT MESSAGE
+// =====================================================
+
+router.put("/:id", (req, res) => {
+
+    const {
+        id
+    } = req.params;
+
+    const {
+        message
+    } = req.body;
+
+
+    if (
+        !message ||
+        !message.trim()
+    ) {
+
+        return res.status(400).json({
+
+            success: false,
+
+            message:
+                "Message cannot be empty."
+
+        });
+
+    }
+
+
+    if (
+        message.trim().length > 500
+    ) {
+
+        return res.status(400).json({
+
+            success: false,
+
+            message:
+                "Message cannot exceed 500 characters."
+
+        });
+
+    }
+
+
+    // =================================================
+    // ORBIT GUARDIAN
+    // =================================================
+
+    const moderation =
+        checkMessage(message);
+
+
+    if (!moderation.allowed) {
+
+        return res.status(400).json({
+
+            success: false,
+
+            message:
+                "Your message was blocked by Orbit Guardian.",
+
+            reason:
+                moderation.reason
+
+        });
+
+    }
+
+
+    try {
+
+        const existingMessage =
+            db.prepare(`
+                SELECT
+                    id,
+                    user_id
+                FROM messages
+                WHERE id = ?
+            `).get(id);
+
+
+        if (!existingMessage) {
+
+            return res.status(404).json({
+
+                success: false,
+
+                message:
+                    "Message not found."
+
+            });
+
+        }
+
+
+        // =================================================
+        // OWNERSHIP
+        // =================================================
+
+        if (
+            existingMessage.user_id !==
+            req.user.id
+        ) {
+
+            return res.status(403).json({
+
+                success: false,
+
+                message:
+                    "You can only edit your own messages."
+
+            });
+
+        }
+
+
+        // =================================================
+        // UPDATE
+        // =================================================
+
+        db.prepare(`
+            UPDATE messages
+            SET message = ?
+            WHERE id = ?
+        `).run(
+
+            message.trim(),
+
+            id
+
+        );
+
+
+        // =================================================
+        // GET UPDATED MESSAGE
+        // =================================================
+
+        const updatedMessage =
+            db.prepare(`
+                SELECT
+
+                    messages.id,
+                    messages.message,
+                    messages.created_at,
+                    messages.reply_to_id,
+
+                    users.id AS user_id,
+                    users.name AS user_name,
+                    users.avatar_url,
+
+                    reply.message AS reply_message,
+                    reply_user.id AS reply_user_id,
+                    reply_user.name AS reply_user_name,
+                    reply_user.avatar_url AS reply_avatar_url
+
+                FROM messages
+
+                LEFT JOIN users
+                    ON messages.user_id = users.id
+
+                LEFT JOIN messages AS reply
+                    ON messages.reply_to_id = reply.id
+
+                LEFT JOIN users AS reply_user
+                    ON reply.user_id = reply_user.id
+
+                WHERE messages.id = ?
+
+            `).get(id);
+
+
+        const formattedMessage =
+            formatMessage(updatedMessage);
+
+
+        // =================================================
+        // REAL-TIME
+        // =================================================
+
+        if (req.io) {
+
+            req.io
+                .to("orbit-chat")
+                .emit(
+                    "message-updated",
+                    formattedMessage
+                );
+
+        }
+
+
+        res.json({
+
+            success: true,
+
+            message:
+                formattedMessage
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "EDIT CHAT ERROR:",
+            error
+        );
+
+        res.status(500).json({
+
+            success: false,
+
+            message:
+                "Failed to edit message."
+
+        });
+
+    }
+
+});
+
+
+// =====================================================
+// DELETE CHAT MESSAGE
+// =====================================================
+
+router.delete("/:id", (req, res) => {
+
+    const {
+        id
+    } = req.params;
+
+
+    try {
+
+        const existingMessage =
+            db.prepare(`
+                SELECT
+                    id,
+                    user_id
+                FROM messages
+                WHERE id = ?
+            `).get(id);
+
+
+        if (!existingMessage) {
+
+            return res.status(404).json({
+
+                success: false,
+
+                message:
+                    "Message not found."
+
+            });
+
+        }
+
+
+        // =================================================
+        // OWNERSHIP
+        // =================================================
+
+        if (
+            existingMessage.user_id !==
+            req.user.id
+        ) {
+
+            return res.status(403).json({
+
+                success: false,
+
+                message:
+                    "You can only delete your own messages."
+
+            });
+
+        }
+
+
+        // =================================================
+        // DELETE
+        // =================================================
+
+        db.prepare(`
+            DELETE FROM messages
+            WHERE id = ?
+        `).run(id);
+
+
+        // =================================================
+        // REAL-TIME DELETE
+        // =================================================
+
+        if (req.io) {
+
+            req.io
+                .to("orbit-chat")
+                .emit(
+                    "message-deleted",
+                    {
+                        id: Number(id)
+                    }
+                );
+
+        }
+
+
+        res.json({
+
+            success: true,
+
+            message:
+                "Message deleted successfully.",
+
+            messageId:
+                Number(id)
+
+        });
+
+    } catch (error) {
+
+        console.error(
+            "DELETE CHAT ERROR:",
+            error
+        );
+
+        res.status(500).json({
+
+            success: false,
+
+            message:
+                "Failed to delete message."
 
         });
 

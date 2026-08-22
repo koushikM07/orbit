@@ -112,7 +112,38 @@ try {
     }
 
 }
+// =====================================================
+// CHAT REPLY MIGRATION
+// =====================================================
 
+// Add reply_to_id to existing messages table.
+// This stores the ID of the message being replied to.
+
+try {
+
+    db.exec(`
+        ALTER TABLE messages
+        ADD COLUMN reply_to_id INTEGER
+    `);
+
+    console.log("reply_to_id column added.");
+
+} catch (error) {
+
+    if (
+        !error.message.includes(
+            "duplicate column name"
+        )
+    ) {
+
+        console.error(
+            "Reply migration error:",
+            error
+        );
+
+    }
+
+}
 
 console.log("Users table ready!");
 console.log("Discussions table ready!");

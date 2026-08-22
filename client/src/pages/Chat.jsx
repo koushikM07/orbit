@@ -1,30 +1,93 @@
-import { useEffect, useState } from "react";
-import { Send, MessageCircle, User } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
+import {
+  MessageCircle,
+  Send,
+  Reply,
+  Pencil,
+  Trash2,
+  X,
+  Check,
+} from "lucide-react";
+
 import { io } from "socket.io-client";
+
+
+// =====================================================
+// SOCKET.IO
+// =====================================================
+
+const socket = io("http://localhost:5000");
+
+
+// =====================================================
+// CHAT
+// =====================================================
 
 function Chat() {
 
+  const navigate = useNavigate();
+
+  // ===================================================
+  // STATE
+  // ===================================================
+
   const [messages, setMessages] = useState([]);
+
   const [message, setMessage] = useState("");
+
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
+
   const [error, setError] = useState("");
 
-  const API_BASE = "http://localhost:5000/api";
+  // IMPORTANT:
+  // Track MESSAGE ID, not USER ID.
+  //
+  // Otherwise if the same user has 10 messages,
+  // all 10 profile cards would open.
 
-  // =====================================================
+  const [hoveredMessageId, setHoveredMessageId] =
+    useState(null);
+
+
+  // Editing
+
+  const [editingId, setEditingId] =
+    useState(null);
+
+  const [editingText, setEditingText] =
+    useState("");
+
+
+  // Reply
+
+  const [replyingTo, setReplyingTo] =
+    useState(null);
+
+
+  const messagesEndRef =
+    useRef(null);
+
+  const inputRef =
+    useRef(null);
+
+
+  // ===================================================
   // CURRENT USER
-  // =====================================================
+  // ===================================================
 
-  const storedUser = localStorage.getItem("orbitUser");
+  const storedUser =
+    localStorage.getItem("orbitUser");
 
   let currentUser = null;
 
   try {
 
-    currentUser = storedUser
-      ? JSON.parse(storedUser)
-      : null;
+    currentUser =
+      storedUser
+        ? JSON.parse(storedUser)
+        : null;
 
   } catch {
 
@@ -33,22 +96,40 @@ function Chat() {
   }
 
 
-  // =====================================================
-  // LOAD MESSAGES + SOCKET
-  // =====================================================
+  const token =
+    localStorage.getItem("orbitToken");
 
-  useEffect(() => {
 
-    // Load existing messages
-    const loadMessages = async () => {
+  // ===================================================
+  // SCROLL TO BOTTOM
+  // ===================================================
 
-      try {
+  const scrollToBottom = () => {
 
-        const token =
-          localStorage.getItem("orbitToken");
+    setTimeout(() => {
 
-        const response = await fetch(
-          `${API_BASE}/chat`,
+      messagesEndRef.current?.scrollIntoView({
+        behavior: "smooth",
+      });
+
+    }, 100);
+
+  };
+
+
+  // ===================================================
+  // LOAD MESSAGES
+  // ===================================================
+
+  const loadMessages = async () => {
+
+    try {
+
+      setLoading(true);
+
+      const response =
+        await fetch(
+          "http://localhost:5000/api/chat",
           {
             headers: {
               Authorization:
@@ -56,174 +137,6 @@ function Chat() {
             },
           }
         );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-
-          throw new Error(
-            data.message ||
-            "Failed to load messages."
-          );
-
-        }
-
-        setMessages(
-          data.messages || []
-        );
-
-      } catch (error) {
-
-        console.error(
-          "LOAD CHAT ERROR:",
-          error
-        );
-
-        setError(
-          error.message ||
-          "Failed to load chat."
-        );
-
-      } finally {
-
-        setLoading(false);
-
-      }
-
-    };
-
-
-    // =================================================
-    // SOCKET.IO CONNECTION
-    // =================================================
-
-    const socket =
-      io("http://localhost:5000");
-
-
-    socket.on("connect", () => {
-
-      console.log(
-        "Connected to Orbit Chat:",
-        socket.id
-      );
-
-      socket.emit(
-        "join-chat"
-      );
-
-    });
-
-
-    socket.on(
-      "new-message",
-      (newMessage) => {
-
-        setMessages(
-          (current) => {
-
-            // Prevent duplicate message
-            if (
-              current.some(
-                (item) =>
-                  item.id ===
-                  newMessage.id
-              )
-            ) {
-
-              return current;
-
-            }
-
-            return [
-              ...current,
-              newMessage
-            ];
-
-          }
-        );
-
-      }
-    );
-
-
-    socket.on(
-      "disconnect",
-      () => {
-
-        console.log(
-          "Disconnected from Orbit Chat"
-        );
-
-      }
-    );
-
-
-    loadMessages();
-
-
-    // =================================================
-    // CLEANUP
-    // =================================================
-
-    return () => {
-
-      socket.disconnect();
-
-    };
-
-  }, []);
-
-
-  // =====================================================
-  // SEND MESSAGE
-  // =====================================================
-
-  const handleSend = async (e) => {
-
-    e.preventDefault();
-
-    if (!message.trim()) {
-      return;
-    }
-
-
-    try {
-
-      setSending(true);
-      setError("");
-
-      const token =
-        localStorage.getItem(
-          "orbitToken"
-        );
-
-
-      const response = await fetch(
-        `${API_BASE}/chat`,
-        {
-          method: "POST",
-
-          headers: {
-
-            "Content-Type":
-              "application/json",
-
-            Authorization:
-              `Bearer ${token}`,
-
-          },
-
-          body: JSON.stringify({
-
-            message:
-              message.trim(),
-
-          }),
-
-        }
-      );
 
 
       const data =
@@ -234,61 +147,584 @@ function Chat() {
 
         throw new Error(
           data.message ||
-          "Failed to send message."
+          "Failed to load messages."
         );
 
       }
 
 
-      /*
-       * IMPORTANT:
-       *
-       * We DON'T manually add the message
-       * here.
-       *
-       * The server broadcasts it through
-       * Socket.IO and the socket listener
-       * adds it to the chat.
-       */
+      setMessages(
+        data.messages || []
+      );
 
+      scrollToBottom();
 
-      setMessage("");
-
-
-    } catch (error) {
+    } catch (err) {
 
       console.error(
-        "SEND MESSAGE ERROR:",
-        error
+        "LOAD CHAT ERROR:",
+        err
       );
 
       setError(
-        error.message ||
-        "Failed to send message."
+        err.message ||
+        "Failed to load chat."
       );
 
     } finally {
 
-      setSending(false);
+      setLoading(false);
 
     }
 
   };
 
 
-  // =====================================================
+  // ===================================================
+  // INITIAL LOAD + SOCKET
+  // ===================================================
+
+  useEffect(() => {
+
+    if (!token) {
+
+      navigate("/login");
+
+      return;
+
+    }
+
+
+    loadMessages();
+
+
+    // Join chat room
+
+    socket.emit(
+      "join-chat"
+    );
+
+
+    // =================================================
+    // NEW MESSAGE
+    // =================================================
+
+    const handleNewMessage =
+      (newMessage) => {
+
+        setMessages((previous) => {
+
+          const exists =
+            previous.some(
+              (item) =>
+                item.id ===
+                newMessage.id
+            );
+
+
+          if (exists) {
+
+            return previous;
+
+          }
+
+
+          return [
+            ...previous,
+            newMessage,
+          ];
+
+        });
+
+
+        scrollToBottom();
+
+      };
+
+
+    // =================================================
+    // UPDATED MESSAGE
+    // =================================================
+
+    const handleMessageUpdated =
+      (updatedMessage) => {
+
+        setMessages((previous) =>
+
+          previous.map(
+            (item) =>
+
+              item.id ===
+              updatedMessage.id
+
+                ? updatedMessage
+
+                : item
+
+          )
+
+        );
+
+      };
+
+
+    // =================================================
+    // DELETED MESSAGE
+    // =================================================
+
+    const handleMessageDeleted =
+      (deletedId) => {
+
+        setMessages((previous) =>
+
+          previous.filter(
+            (item) =>
+              item.id !== deletedId
+          )
+
+        );
+
+      };
+
+
+    socket.on(
+      "message-created",
+      handleNewMessage
+    );
+
+    socket.on(
+      "new-message",
+      handleNewMessage
+    );
+
+    socket.on(
+      "message-updated",
+      handleMessageUpdated
+    );
+
+    socket.on(
+      "message-deleted",
+      handleMessageDeleted
+    );
+
+
+    // =================================================
+    // CLEANUP
+    // =================================================
+
+    return () => {
+
+      socket.off(
+        "message-created",
+        handleNewMessage
+      );
+
+      socket.off(
+        "new-message",
+        handleNewMessage
+      );
+
+      socket.off(
+        "message-updated",
+        handleMessageUpdated
+      );
+
+      socket.off(
+        "message-deleted",
+        handleMessageDeleted
+      );
+
+    };
+
+  }, [token, navigate]);
+
+
+  // ===================================================
+  // SEND MESSAGE
+  // ===================================================
+
+  const handleSend = async (event) => {
+
+    event.preventDefault();
+
+
+    const text =
+      message.trim();
+
+
+    if (!text) {
+
+      return;
+
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          "http://localhost:5000/api/chat",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              message: text,
+            }),
+
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        alert(
+          data.message ||
+          "Failed to send message."
+        );
+
+        return;
+
+      }
+
+
+      // Add immediately
+
+      if (data.message) {
+
+        setMessages((previous) => {
+
+          const exists =
+            previous.some(
+              (item) =>
+                item.id ===
+                data.message.id
+            );
+
+
+          if (exists) {
+
+            return previous;
+
+          }
+
+
+          return [
+            ...previous,
+            data.message,
+          ];
+
+        });
+
+      }
+
+
+      setMessage("");
+
+      setReplyingTo(null);
+
+      scrollToBottom();
+
+
+      setTimeout(() => {
+
+        inputRef.current?.focus();
+
+      }, 100);
+
+
+    } catch (err) {
+
+      console.error(
+        "SEND MESSAGE ERROR:",
+        err
+      );
+
+      alert(
+        "Server is not responding."
+      );
+
+    }
+
+  };
+
+
+  // ===================================================
+  // START EDIT
+  // ===================================================
+
+  const startEdit = (item) => {
+
+    setEditingId(item.id);
+
+    setEditingText(
+      item.message
+    );
+
+  };
+
+
+  // ===================================================
+  // CANCEL EDIT
+  // ===================================================
+
+  const cancelEdit = () => {
+
+    setEditingId(null);
+
+    setEditingText("");
+
+  };
+
+
+  // ===================================================
+  // SAVE EDIT
+  // ===================================================
+
+  const saveEdit = async (id) => {
+
+    const text =
+      editingText.trim();
+
+
+    if (!text) {
+
+      return;
+
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          `http://localhost:5000/api/chat/${id}`,
+          {
+            method: "PUT",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              message: text,
+            }),
+
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        alert(
+          data.message ||
+          "Failed to edit message."
+        );
+
+        return;
+
+      }
+
+
+      if (data.message) {
+
+        setMessages((previous) =>
+
+          previous.map(
+            (item) =>
+
+              item.id === id
+                ? data.message
+                : item
+
+          )
+
+        );
+
+      }
+
+
+      setEditingId(null);
+
+      setEditingText("");
+
+    } catch (err) {
+
+      console.error(
+        "EDIT MESSAGE ERROR:",
+        err
+      );
+
+      alert(
+        "Failed to edit message."
+      );
+
+    }
+
+  };
+
+
+  // ===================================================
+  // DELETE MESSAGE
+  // ===================================================
+
+  const handleDelete = async (id) => {
+
+    const confirmed =
+      window.confirm(
+        "Are you sure you want to delete this message?"
+      );
+
+
+    if (!confirmed) {
+
+      return;
+
+    }
+
+
+    try {
+
+      const response =
+        await fetch(
+          `http://localhost:5000/api/chat/${id}`,
+          {
+            method: "DELETE",
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        alert(
+          data.message ||
+          "Failed to delete message."
+        );
+
+        return;
+
+      }
+
+
+      setMessages((previous) =>
+
+        previous.filter(
+          (item) =>
+            item.id !== id
+        )
+
+      );
+
+    } catch (err) {
+
+      console.error(
+        "DELETE MESSAGE ERROR:",
+        err
+      );
+
+      alert(
+        "Failed to delete message."
+      );
+
+    }
+
+  };
+
+
+  // ===================================================
+  // REPLY
+  // ===================================================
+
+  const handleReply = (item) => {
+
+    setReplyingTo(item);
+
+    setMessage(
+      `@${item.user?.name || "user"} `
+    );
+
+
+    setTimeout(() => {
+
+      inputRef.current?.focus();
+
+    }, 100);
+
+  };
+
+
+  // ===================================================
+  // VIEW PROFILE
+  // ===================================================
+
+  const handleViewProfile = (userId) => {
+
+    setHoveredMessageId(null);
+
+    navigate(
+      `/profile/${userId}`
+    );
+
+  };
+
+
+  // ===================================================
   // FORMAT TIME
-  // =====================================================
+  // ===================================================
 
   const formatTime = (date) => {
 
     if (!date) {
+
       return "";
+
     }
 
-    return new Date(
-      date
-    ).toLocaleTimeString(
+
+    const value =
+      new Date(date);
+
+
+    if (
+      Number.isNaN(
+        value.getTime()
+      )
+    ) {
+
+      return date;
+
+    }
+
+
+    return value.toLocaleTimeString(
       [],
       {
         hour: "2-digit",
@@ -299,19 +735,61 @@ function Chat() {
   };
 
 
-  // =====================================================
+  // ===================================================
+  // AVATAR
+  // ===================================================
+
+  const getAvatar = (user) => {
+
+    if (
+      user?.avatarUrl &&
+      user.avatarUrl.trim()
+    ) {
+
+      return user.avatarUrl;
+
+    }
+
+    return null;
+
+  };
+
+
+  // ===================================================
+  // INITIAL
+  // ===================================================
+
+  const getInitial = (name) => {
+
+    if (!name) {
+
+      return "?";
+
+    }
+
+
+    return name
+      .charAt(0)
+      .toUpperCase();
+
+  };
+
+
+  // ===================================================
   // LOADING
-  // =====================================================
+  // ===================================================
 
   if (loading) {
 
     return (
 
-      <div className="min-h-screen bg-slate-950 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
 
-        <p className="text-slate-400">
+        <div className="text-slate-400">
+
           Loading Orbit Chat...
-        </p>
+
+        </div>
 
       </div>
 
@@ -320,51 +798,59 @@ function Chat() {
   }
 
 
-  // =====================================================
-  // MAIN
-  // =====================================================
+  // ===================================================
+  // PAGE
+  // ===================================================
 
   return (
 
     <div className="min-h-screen bg-slate-950 text-white">
 
-      <div className="max-w-5xl mx-auto px-4 py-8">
+
+      {/* =================================================
+          HEADER
+      ================================================= */}
+
+      <div className="max-w-7xl mx-auto px-6 pt-8">
+
+        <div className="flex items-center gap-4">
+
+          <div className="w-14 h-14 rounded-2xl bg-orange-500 flex items-center justify-center">
+
+            <MessageCircle
+              size={30}
+            />
+
+          </div>
 
 
-        {/* =================================================
-            HEADER
-        ================================================= */}
+          <div>
 
-        <div className="mb-6">
+            <h1 className="text-4xl font-bold">
 
-          <div className="flex items-center gap-3">
+              Orbit Chat
 
-            <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center">
+            </h1>
 
-              <MessageCircle size={25} />
 
-            </div>
+            <p className="text-slate-400 text-lg">
 
-            <div>
+              Talk about movies, shows and everything Orbit.
 
-              <h1 className="text-3xl font-bold">
-                Orbit Chat
-              </h1>
-
-              <p className="text-slate-400 text-sm">
-                Talk about movies, shows and everything Orbit.
-              </p>
-
-            </div>
+            </p>
 
           </div>
 
         </div>
 
+      </div>
 
-        {/* =================================================
-            CHAT CONTAINER
-        ================================================= */}
+
+      {/* =================================================
+          CHAT
+      ================================================= */}
+
+      <div className="max-w-7xl mx-auto px-6 mt-8">
 
         <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
 
@@ -373,78 +859,105 @@ function Chat() {
               MESSAGES
           ================================================= */}
 
-          <div className="h-[60vh] overflow-y-auto p-6 space-y-5">
+          <div className="h-[600px] overflow-y-auto p-6 space-y-6">
 
-            {messages.length === 0 ? (
 
-              <div className="h-full flex items-center justify-center">
+            {/* ERROR */}
 
-                <div className="text-center">
+            {error && (
 
-                  <MessageCircle
-                    size={45}
-                    className="mx-auto text-slate-700 mb-4"
-                  />
+              <div className="bg-red-600/20 border border-red-500/30 text-red-300 px-4 py-3 rounded-xl">
 
-                  <p className="text-slate-400">
-                    No messages yet.
-                  </p>
-
-                  <p className="text-slate-600 text-sm mt-1">
-                    Start the conversation 🚀
-                  </p>
-
-                </div>
+                {error}
 
               </div>
 
-            ) : (
-
-              messages.map((item) => {
-
-                const isMine =
-                  currentUser &&
-                  item.user?.id ===
-                    currentUser.id;
+            )}
 
 
-                return (
+            {/* EMPTY */}
+
+            {messages.length === 0 && !error && (
+
+              <div className="h-full flex items-center justify-center text-slate-500">
+
+                No messages yet. Start the conversation! 🚀
+
+              </div>
+
+            )}
+
+
+            {/* =================================================
+                MESSAGE LOOP
+            ================================================= */}
+
+            {messages.map((item) => {
+
+              const isOwnMessage =
+                currentUser &&
+                Number(item.user?.id) ===
+                Number(currentUser.id);
+
+
+              const isEditing =
+                editingId === item.id;
+
+
+              const avatar =
+                getAvatar(
+                  item.user
+                );
+
+
+              const profileOpen =
+                hoveredMessageId ===
+                item.id;
+
+
+              return (
+
+                <div
+                  key={item.id}
+                  className={`flex gap-4 ${
+                    isOwnMessage
+                      ? "flex-row-reverse"
+                      : ""
+                  }`}
+                >
+
+
+                  {/* =================================================
+                      AVATAR + PROFILE CARD
+                  ================================================= */}
 
                   <div
-                    key={item.id}
-                    className={`flex gap-3 ${
-                      isMine
-                        ? "justify-end"
-                        : "justify-start"
-                    }`}
+                    className="relative flex-shrink-0"
+                    onMouseEnter={() =>
+                      setHoveredMessageId(
+                        item.id
+                      )
+                    }
                   >
 
+                    {/* AVATAR */}
 
-                    {/* OTHER USER AVATAR */}
+                    {avatar ? (
 
-                    {!isMine && (
+                      <img
+                        src={avatar}
+                        alt={
+                          item.user?.name
+                        }
+                        className="w-12 h-12 rounded-full object-cover border-2 border-slate-700 cursor-pointer hover:border-orange-500 transition"
+                      />
 
-                      <div className="w-10 h-10 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center flex-shrink-0">
+                    ) : (
 
-                        {item.user?.avatarUrl ? (
+                      <div className="w-12 h-12 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-lg cursor-pointer">
 
-                          <img
-                            src={
-                              item.user.avatarUrl
-                            }
-                            alt={
-                              item.user.name
-                            }
-                            className="w-full h-full object-cover"
-                          />
-
-                        ) : (
-
-                          <User
-                            size={18}
-                            className="text-orange-500"
-                          />
-
+                        {getInitial(
+                          item.user?.name
                         )}
 
                       </div>
@@ -452,79 +965,438 @@ function Chat() {
                     )}
 
 
-                    {/* MESSAGE */}
+                    {/* =================================================
+                        PROFILE POPUP
+                    ================================================= */}
 
-                    <div
-                      className={`max-w-[75%] ${
-                        isMine
-                          ? "items-end"
-                          : "items-start"
-                      } flex flex-col`}
-                    >
-
-                      {!isMine && (
-
-                        <span className="text-xs text-slate-500 mb-1 ml-1">
-
-                          {item.user?.name}
-
-                        </span>
-
-                      )}
-
+                    {profileOpen && (
 
                       <div
-                        className={`px-4 py-3 rounded-2xl ${
-                          isMine
-                            ? "bg-orange-500 text-white rounded-br-md"
-                            : "bg-slate-800 text-slate-200 rounded-bl-md"
+                        className={`absolute top-0 z-[100] ${
+                          isOwnMessage
+                            ? "right-14"
+                            : "left-14"
                         }`}
+                        onMouseEnter={() =>
+                          setHoveredMessageId(
+                            item.id
+                          )
+                        }
+                        onMouseLeave={() =>
+                          setHoveredMessageId(
+                            null
+                          )
+                        }
                       >
 
-                        <p className="break-words">
+                        {/* =============================================
+                            INVISIBLE HOVER BRIDGE
 
-                          {item.message}
+                            Prevents the popup from disappearing while
+                            moving the mouse from avatar to card.
+                        ============================================= */}
 
-                        </p>
+                        <div
+                          className={`absolute top-0 h-full w-6 ${
+                            isOwnMessage
+                              ? "right-full"
+                              : "left-full"
+                          }`}
+                        />
+
+
+                        {/* PROFILE CARD */}
+
+                        <div className="w-72 bg-slate-900 border border-slate-700 rounded-2xl p-5 shadow-2xl">
+
+                          {/* USER */}
+
+                          <div className="flex items-center gap-4">
+
+                            {avatar ? (
+
+                              <img
+                                src={avatar}
+                                alt={
+                                  item.user?.name
+                                }
+                                className="w-16 h-16 rounded-full object-cover border-2 border-slate-700"
+                              />
+
+                            ) : (
+
+                              <div className="w-16 h-16 rounded-full bg-orange-500 flex items-center justify-center text-white font-bold text-2xl">
+
+                                {getInitial(
+                                  item.user?.name
+                                )}
+
+                              </div>
+
+                            )}
+
+
+                            <div>
+
+                              <h3 className="text-lg font-semibold text-white">
+
+                                {
+                                  item.user?.name
+                                }
+
+                              </h3>
+
+
+                              <p className="text-slate-400 text-sm">
+
+                                Orbit Member
+
+                              </p>
+
+                            </div>
+
+                          </div>
+
+
+                          {/* VIEW PROFILE */}
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleViewProfile(
+                                item.user.id
+                              )
+                            }
+                            className="w-full mt-5 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-semibold transition"
+                          >
+
+                            View Profile
+
+                          </button>
+
+                        </div>
 
                       </div>
 
+                    )}
 
-                      <span className="text-[11px] text-slate-600 mt-1 px-1">
+                  </div>
 
-                        {formatTime(
-                          item.createdAt
-                        )}
 
-                      </span>
+                  {/* =================================================
+                      MESSAGE CONTENT
+                  ================================================= */}
+
+                  <div
+                    className={`max-w-[70%] flex flex-col ${
+                      isOwnMessage
+                        ? "items-end"
+                        : "items-start"
+                    }`}
+                  >
+
+
+                    {/* USER NAME */}
+
+                    <div
+                      className={`text-sm text-slate-400 mb-1 ${
+                        isOwnMessage
+                          ? "text-right"
+                          : ""
+                      }`}
+                    >
+
+                      {item.user?.name}
 
                     </div>
 
 
+                    {/* =================================================
+                        EDIT MODE
+                    ================================================= */}
+
+                    {isEditing ? (
+
+                      <div className="w-full min-w-[300px]">
+
+                        <textarea
+                          value={
+                            editingText
+                          }
+                          onChange={(e) =>
+                            setEditingText(
+                              e.target.value
+                            )
+                          }
+                          maxLength={500}
+                          rows={3}
+                          autoFocus
+                          className="w-full bg-slate-800 border border-orange-500 rounded-2xl px-4 py-3 text-white outline-none resize-none"
+                        />
+
+
+                        <div className="flex justify-end gap-2 mt-2">
+
+                          <button
+                            type="button"
+                            onClick={
+                              cancelEdit
+                            }
+                            className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm"
+                          >
+
+                            <X
+                              size={16}
+                            />
+
+                          </button>
+
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              saveEdit(
+                                item.id
+                              )
+                            }
+                            className="px-3 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm"
+                          >
+
+                            <Check
+                              size={16}
+                            />
+
+                          </button>
+
+                        </div>
+
+                      </div>
+
+                    ) : (
+
+                      /* =================================================
+                         NORMAL MESSAGE
+                      ================================================= */
+
+                      <div
+                        className={`px-5 py-3 rounded-2xl ${
+                          isOwnMessage
+                            ? "bg-orange-500 text-white rounded-tr-sm"
+                            : "bg-slate-800 text-slate-200 rounded-tl-sm"
+                        }`}
+                      >
+
+                        {/* REPLY PREVIEW */}
+
+                        {item.replyTo && (
+
+                          <div className="mb-2 px-3 py-2 rounded-lg bg-black/20 border-l-2 border-orange-300 text-sm">
+
+                            <div className="font-semibold">
+
+                              {
+                                item
+                                  .replyTo
+                                  .userName
+                              }
+
+                            </div>
+
+
+                            <div className="opacity-70 truncate">
+
+                              {
+                                item
+                                  .replyTo
+                                  .message
+                              }
+
+                            </div>
+
+                          </div>
+
+                        )}
+
+
+                        {/* MESSAGE */}
+
+                        <div className="whitespace-pre-wrap break-words">
+
+                          {item.message}
+
+                        </div>
+
+                      </div>
+
+                    )}
+
+
+                    {/* =================================================
+                        ACTIONS
+                    ================================================= */}
+
+                    {!isEditing && (
+
+                      <div
+                        className={`flex items-center gap-3 mt-2 text-xs text-slate-500 ${
+                          isOwnMessage
+                            ? "flex-row-reverse"
+                            : ""
+                        }`}
+                      >
+
+                        {/* TIME */}
+
+                        <span>
+
+                          {
+                            formatTime(
+                              item.createdAt
+                            )
+                          }
+
+                        </span>
+
+
+                        {/* REPLY */}
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleReply(
+                              item
+                            )
+                          }
+                          className="flex items-center gap-1 hover:text-orange-400 transition"
+                        >
+
+                          <Reply
+                            size={14}
+                          />
+
+                          Reply
+
+                        </button>
+
+
+                        {/* EDIT */}
+
+                        {isOwnMessage && (
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startEdit(
+                                item
+                              )
+                            }
+                            className="flex items-center gap-1 hover:text-orange-400 transition"
+                          >
+
+                            <Pencil
+                              size={14}
+                            />
+
+                            Edit
+
+                          </button>
+
+                        )}
+
+
+                        {/* DELETE */}
+
+                        {isOwnMessage && (
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleDelete(
+                                item.id
+                              )
+                            }
+                            className="flex items-center gap-1 hover:text-red-400 transition"
+                          >
+
+                            <Trash2
+                              size={14}
+                            />
+
+                            Delete
+
+                          </button>
+
+                        )}
+
+                      </div>
+
+                    )}
+
                   </div>
 
-                );
+                </div>
 
-              })
+              );
 
-            )}
+            })}
+
+
+            {/* SCROLL TARGET */}
+
+            <div
+              ref={messagesEndRef}
+            />
 
           </div>
 
 
           {/* =================================================
-              ERROR
+              REPLY BAR
           ================================================= */}
 
-          {error && (
+          {replyingTo && (
 
-            <div className="px-6 pb-3">
+            <div className="border-t border-slate-800 px-6 py-3 bg-slate-950/50 flex items-center justify-between">
 
-              <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm">
+              <div>
 
-                {error}
+                <p className="text-xs text-orange-400">
+
+                  Replying to{" "}
+
+                  {
+                    replyingTo
+                      .user
+                      ?.name
+                  }
+
+                </p>
+
+
+                <p className="text-sm text-slate-400 truncate max-w-xl">
+
+                  {
+                    replyingTo.message
+                  }
+
+                </p>
 
               </div>
+
+
+              <button
+                type="button"
+                onClick={() =>
+                  setReplyingTo(
+                    null
+                  )
+                }
+                className="text-slate-400 hover:text-white"
+              >
+
+                <X size={20} />
+
+              </button>
 
             </div>
 
@@ -532,63 +1404,57 @@ function Chat() {
 
 
           {/* =================================================
-              MESSAGE INPUT
+              INPUT
           ================================================= */}
 
-          <div className="border-t border-slate-800 p-4">
+          <div className="border-t border-slate-800 p-5">
 
             <form
-              onSubmit={handleSend}
+              onSubmit={
+                handleSend
+              }
               className="flex gap-3"
             >
 
               <input
+                ref={inputRef}
                 type="text"
                 value={message}
-                maxLength={500}
                 onChange={(e) =>
                   setMessage(
                     e.target.value
                   )
                 }
                 placeholder="Write a message..."
-                className="flex-1 px-5 py-4 rounded-2xl bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-none focus:border-orange-500 transition"
+                maxLength={500}
+                className="flex-1 bg-slate-800 border border-slate-700 focus:border-orange-500 rounded-2xl px-5 py-4 text-white outline-none transition"
               />
 
 
               <button
                 type="submit"
                 disabled={
-                  sending ||
                   !message.trim()
                 }
-                className="w-14 h-14 rounded-2xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition"
+                className="px-6 bg-orange-500 hover:bg-orange-600 disabled:bg-slate-700 disabled:text-slate-500 rounded-2xl text-white font-semibold transition flex items-center gap-2"
               >
 
-                <Send size={20} />
+                <Send
+                  size={18}
+                />
+
+                Send
 
               </button>
 
             </form>
 
 
-            <div className="flex justify-between mt-2 px-1">
+            {/* CHARACTER COUNT */}
 
-              <span className="text-xs text-slate-600">
+            <div className="text-right text-xs text-slate-600 mt-2">
 
-                Logged in as{" "}
-
-                {currentUser?.name ||
-                  "User"}
-
-              </span>
-
-
-              <span className="text-xs text-slate-600">
-
-                {message.length}/500
-
-              </span>
+              {message.length}/500
 
             </div>
 
@@ -603,5 +1469,6 @@ function Chat() {
   );
 
 }
+
 
 export default Chat;
